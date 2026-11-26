@@ -1,111 +1,129 @@
 <p align="center">
-  <img src="docs/images/icon.png" width="96" alt="AgentDock">
+  English | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/icon.png" width="120" alt="AgentDock">
 </p>
 
 <h1 align="center">AgentDock</h1>
 
 <p align="center">
-  <b>一个窗口，管好你所有的 AI 编程 agent。</b><br>
-  Claude 桌面版、Codex、Antigravity 的会话放在一起看、一起回；<br>
-  还能按项目自动追踪目标和进度，几个 agent 同时干活也不失焦。
+  <b>One window for all your AI coding agents.</b>
 </p>
 
 <p align="center">
-  <a href="https://github.com/attitudechunfeng/agentdock/releases/latest"><b>下载 macOS 版</b></a>
-  · macOS 14 及以上 · Apple 芯片和 Intel 通用 · 免费
+  Read and reply to your Claude desktop, Codex, and Antigravity sessions in one place, without switching between apps.<br>
+  Track each project's goals and progress automatically, so several agents working in parallel never lose focus.
 </p>
 
-![AgentDock 主界面](docs/images/main.png)
+<p align="center">
+  <a href="https://github.com/attitudechunfeng/agentdock/releases/latest"><b>Download</b></a> ·
+  <a href="#install">Install</a> ·
+  <a href="#faq">FAQ</a> ·
+  <a href="docs/DEVELOPMENT.md">Developer notes (Chinese)</a>
+</p>
 
-## 为什么做它
+<p align="center">
+  <a href="https://github.com/attitudechunfeng/agentdock/releases/latest"><img src="https://img.shields.io/github/v/release/attitudechunfeng/agentdock?label=release" alt="release"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%7C%20Intel-universal-blue" alt="Apple Silicon and Intel">
+  <a href="https://github.com/attitudechunfeng/agentdock/releases"><img src="https://img.shields.io/github/downloads/attitudechunfeng/agentdock/total?label=downloads" alt="downloads"></a>
+</p>
 
-现在很多工作要几个 agent 并行协作：Claude 写代码，Codex 跑实验，Gemini 帮着评审方案。可它们各在各的应用里，一会儿切到这个看有没有回复，一会儿切到那个批准一个操作，再切回来接着聊。窗口来回切，注意力跟着被打断，几个项目同时推进时更容易乱。
+![AgentDock main window](docs/images/main.png)
 
-AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗口**，在这里看、在这里回，再用项目看板把每个项目的目标和进度串起来。
+> The app's interface is currently in Simplified Chinese.
 
-## 为什么用它
+## Why AgentDock
 
-**🔌 无痛接入你已经在用的 agent**
-装好打开就能用：自动找到本机装的 Claude 桌面版、Codex、Antigravity，已有的会话和历史记录直接列出来。不用填 API Key，不用迁移会话，也不用换掉手上的工具，原应用怎么用还怎么用。
+More and more work now runs on several agents at once: Claude writes the code, Codex runs the experiments, Gemini reviews the plan. But each lives in its own app. You switch to one to check for a reply, to another to approve an action, then back again. Every switch breaks your focus, and with several projects going at once it gets messy fast.
 
-**🗂 一个窗口管全部 agent**
-三个应用的会话放进同一个列表，按时间、目录或项目分组。哪条有新回复、哪条还在跑、哪条在等你批准，一眼就能看到，已读状态和原应用双向同步。
+AgentDock fixes exactly that: **it brings all your agent apps into one window.** Read and reply there, and let the project board tie each project's goals and progress together.
 
-**💬 不切窗口就能回复**
-发消息、回答 agent 的选择题、批准操作、切换模型和权限，都在 AgentDock 里完成，原应用在后台照常工作，不用来回切。会话还在跑时发的消息会自动排队，等它停下再发出。
+## Highlights
 
-**🎯 项目看板：多个 agent 并行也不失焦**
-自动把会话归到项目，每轮回复结束后汇总：总目标、各条工作线的进度、等你拍板的事、实测有效和无效的做法。目标和工作线由你来定，模型只更新进度，想改目标时会先提建议等你采纳。打开后还能把看板自动带进会话，让 agent 每次动手前先对齐目标。
+**🔌 Works with the agents you already use**
+Install it, open it, done. AgentDock finds the Claude desktop app, Codex, and Antigravity on your Mac and lists your existing sessions and history right away. No API keys, no migrating sessions, no switching tools. The original apps keep working exactly as before.
 
-**🔒 不改你的工具，数据不出本机**
-直接读取各应用留在本机的会话记录，通过系统的辅助功能和应用自带的本地接口操作。不用注册账号，没有服务器，不上传任何内容。
+**🗂 Every agent in one window**
+Sessions from all three apps share one list, grouped by time, folder, or project. See at a glance which ones have new replies, which are still running, and which are waiting for your approval. Read status stays in sync with the original apps in both directions.
 
-**⚡️ 轻**
-有变化才刷新，后台常驻 CPU 不到 1%。关掉窗口也会在后台继续同步。
+**💬 Reply without switching windows**
+Send messages, answer an agent's multiple-choice questions, approve actions, and change models and permissions, all from AgentDock. The original apps keep working in the background. Messages you send while a session is running are queued and go out when it stops.
 
-| 你在做的事 | 只用原应用 | 用 AgentDock |
+**🎯 Project board: parallel agents, one clear focus**
+Sessions are grouped into projects automatically. After each reply, AgentDock summarizes the overall goal, the progress of each workstream, decisions waiting on you, and approaches proven to work or not. You set the goals and workstreams; the model only updates progress, and suggests changes for you to accept. You can also have the board fed into your sessions automatically, so agents align with the goal before they start.
+
+**🔒 Leaves your tools alone, keeps your data on your Mac**
+AgentDock reads the session records the apps already keep on your Mac, and acts through macOS Accessibility and the apps' own local interfaces. No account, no server, nothing uploaded.
+
+**⚡️ Lightweight**
+It only refreshes when something changes, using under 1% CPU in the background. Closing the window keeps it syncing in the background.
+
+| What you're doing | Original apps only | With AgentDock |
 |---|---|---|
-| 看三个应用里谁回复了 | 挨个打开、挨个翻 | 一个列表，未读置顶 |
-| 回复一条会话 | 切到那个应用、找到会话 | 当前窗口直接回 |
-| agent 问你选哪个方案 | 得盯着那个应用 | 弹成卡片，点一下 |
-| 记住每个项目做到哪了 | 靠翻聊天记录、靠记忆 | 项目看板自动汇总 |
-| 新开的会话不了解前情 | 手动把背景再讲一遍 | 看板自动带进会话 |
+| Checking which agent replied | Open each app and look | One list, unread on top |
+| Replying to a session | Switch apps, find the session | Reply right here |
+| An agent asks you to pick an option | Keep watching that app | Shown as a card, one click |
+| Remembering where each project stands | Scroll back, rely on memory | The project board sums it up |
+| Giving a new session the background | Explain it all again | The board is passed in automatically |
 
-**和其他多 agent 集成工具比**，AgentDock 不另起一套环境：
+**Compared with other multi-agent tools**, AgentDock doesn't set up a separate environment:
 
-| | 常见的集成工具 | AgentDock |
+| | Typical integration tools | AgentDock |
 |---|---|---|
-| 开始用之前 | 填 API Key、配置模型、重新接入每个 agent | 打开就行，自动找到本机已装的应用 |
-| 已有的会话 | 留在原应用里，看不到 | 全部列出来，接着聊 |
-| 订阅和额度 | 往往按 API 另外计费 | 用你现有的 Claude、Codex、Antigravity 订阅 |
-| 原应用 | 被替代，换一套新界面 | 照常用，两边状态同步 |
+| Before you start | Enter API keys, configure models, reconnect every agent | Just open it; it finds the apps you already have |
+| Existing sessions | Stay in the original apps, out of view | All listed, pick up where you left off |
+| Subscriptions and usage | Often billed separately via API | Uses your existing Claude, Codex, and Antigravity plans |
+| Original apps | Replaced by a new interface | Keep using them; state stays in sync |
 
-## 项目看板
+## Project board
 
-![项目看板](docs/images/project.png)
+![Project board](docs/images/project.png)
 
-每个项目一页：最上面是总目标和现状，接着是**需要你处理**的事（等你拍板的决定、模型的建议），下面每条工作线一张卡片，左边的颜色条表示状态（进行中、卡住、等你定、已解决）。展开能看到这条线上验证过的结论（附依据）、下一步和进展记录。每一处都能直接改，改完点“按我的修改刷新”让模型照你的意思重新整理。
+Each project gets one page. At the top are the overall goal and current status, then **things that need you** (decisions waiting on you and the model's suggestions). Below that, each workstream has a card whose colored bar shows its state (in progress, blocked, waiting on you, done). Expand a card to see its verified findings (with evidence), next steps, and history. Everything is editable; after editing, click "Refresh with my changes" (按我的 N 处修改刷新) and the model reorganizes the board your way.
 
-![看板总览](docs/images/board.png)
+![Board overview](docs/images/board.png)
 
-## 安装
+## Install
 
-1. 从 [Releases](https://github.com/attitudechunfeng/agentdock/releases/latest) 下载 `AgentDock-x.x.dmg`，打开后把 AgentDock 拖进“应用程序”。
-2. 第一次打开时，系统会提示“无法验证开发者”（应用没有经过 Apple 公证）。在“应用程序”里**右键 AgentDock → 打开**；如果弹窗里没有“打开”按钮，去 **系统设置 → 隐私与安全性**，点“仍要打开”。只需要这一次。
-3. 跟着首次启动的引导走，打开“辅助功能”权限。只看会话的话不开也行；要在 AgentDock 里回复，就需要它。
+1. Download `AgentDock-x.x.dmg` from [Releases](https://github.com/attitudechunfeng/agentdock/releases/latest), open it, and drag AgentDock into Applications.
+2. The first time you open it, macOS says it can't verify the developer (the app isn't notarized by Apple). In Applications, **right-click AgentDock → Open**. If the dialog has no Open button, go to **System Settings → Privacy & Security** and click "Open Anyway". You only need to do this once.
+3. Follow the first-launch guide to turn on Accessibility permission. You can skip it if you only want to read sessions; replying from AgentDock needs it.
 
-需要至少装了一个：[Claude 桌面版](https://claude.ai/download)、Codex 桌面版、Antigravity，并且用它们聊过天。
+You need at least one of [Claude desktop](https://claude.ai/download), the Codex desktop app, or Antigravity installed and used at least once.
 
-## 上手
+## Getting started
 
-- **看和回**：左栏点一条会话，右边就是完整对话；底部输入框回车发送，旁边可以切模型和权限。
-- **开看板**：左栏顶部的方格按钮打开项目看板，勾选“每轮回复结束后自动更新”就开始汇总；也可以先点“从最近 7 天的会话建看板”。
-- **管会话**：右键会话可以改名、分叉、置顶、归档、删除，或者归到某个项目。
-- **关窗口不退出**：点红点只是收起窗口，后台继续同步；点程序坞图标再打开，⌘Q 才是真退出。
+- **Read and reply**: click a session on the left to see the full conversation on the right. Type in the box at the bottom and press Return to send; the model and permission menus are next to it.
+- **Turn on the board**: the grid button at the top of the sidebar opens the project board. Check "auto-update after each reply" (每轮回复结束后自动更新) to start summarizing, or first click "build the board from the last 7 days" (从最近 7 天的会话建看板).
+- **Manage sessions**: right-click a session to rename, fork, pin, archive, delete, or move it to a project.
+- **Closing isn't quitting**: the red button only hides the window and AgentDock keeps syncing. Click the Dock icon to bring it back; ⌘Q quits.
 
-<p align="center"><img src="docs/images/guide.png" width="520" alt="首次启动引导"></p>
+<p align="center"><img src="docs/images/guide.png" width="520" alt="First-launch guide"></p>
 
-## 常见问题
+## FAQ
 
-**会不会花我的额度？**
-看会话、回复会话不额外花。项目看板的汇总会调用你本机的 Claude Code、Codex 或 Gemini（在看板里选），用的是你自己账号的额度，默认关闭，打开才开始。
+**Will it use up my quota?**
+Reading and replying to sessions costs nothing extra. Project board summaries call the Claude Code, Codex, or Gemini on your Mac (you choose which), using your own account's quota. This is off by default and only starts when you turn it on.
 
-**我的数据安全吗？**
-所有东西都在本机。AgentDock 没有服务器，不联网上传。它自己的数据放在 `~/Library/Application Support/AgentDock` 和 `~/.agentdock`。
+**Is my data safe?**
+Everything stays on your Mac. AgentDock has no server and uploads nothing. Its own data lives in `~/Library/Application Support/AgentDock` and `~/.agentdock`.
 
-**为什么要“辅助功能”权限？**
-各应用没有开放“发消息”之类的接口，AgentDock 需要在后台替你点它们的界面。只看会话不需要这个权限。
+**Why does it need Accessibility permission?**
+The apps don't offer an interface for things like sending a message, so AgentDock clicks their interface for you in the background. Reading sessions doesn't need this permission.
 
-**“让会话读到看板”会改什么？**
-这一项默认关闭。打开时会在 Claude Code 和 Codex 的配置里各加一个钩子，改之前先备份；关掉时会把钩子摘掉，别的设置不动。
+**What does "let sessions read the board" (会话自动读到看板) change?**
+It's off by default. Turning it on adds one hook to the Claude Code and Codex settings, backing them up first. Turning it off removes the hook and leaves everything else untouched.
 
-**怎么卸载？**
-如果开过“让会话读到看板”，先在看板里关掉；然后把 AgentDock 拖进废纸篓。想连数据一起删，再删掉上面那两个文件夹。
+**How do I uninstall it?**
+If you turned on "let sessions read the board", turn it off in the board first. Then drag AgentDock to the Trash. To remove its data too, delete the two folders above.
 
-## 从源码编译
+## Build from source
 
 ```bash
 ./install.sh
 ```
 
-编译并装到“应用程序”。实现原理、各功能细节和调试方法见 [开发说明](docs/DEVELOPMENT.md)。
+This builds the app and installs it into Applications. See the [developer notes](docs/DEVELOPMENT.md) (in Chinese) for how it works, feature details, and debugging.

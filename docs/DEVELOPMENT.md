@@ -1,6 +1,6 @@
 # AgentDock 开发说明
 
-这份文档写给要改代码的人：实现原理、各项功能的细节、调试手段。使用介绍见仓库首页的 [README](../README.md)。
+这份文档写给要改代码的人：实现原理、各项功能的细节、调试手段。使用介绍见 [README](../README.zh-CN.md)。
 
 AgentDock 在一个窗口里统一查看和操作 Codex、Claude 桌面端、Antigravity 的会话。
 
