@@ -260,6 +260,8 @@ struct RootView: View {
                     ForEach(AppFilter.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
+                Button { model.selectedId = nil; model.draft = nil; model.board = nil } label: { Image(systemName: "house") }
+                    .buttonStyle(.borderless).help(tr("首页：环境检查、自检、切换语言", "Home: setup check, self-check, language"))
                 Button { model.board = "" } label: { Image(systemName: "square.grid.2x2") }
                     .buttonStyle(.borderless).help(tr("项目看板", "Project board"))
                 newMenu(folder: nil)

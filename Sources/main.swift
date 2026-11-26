@@ -320,6 +320,18 @@ struct AgentDockApp: App {
             RootView(model: model).frame(minWidth: 820, minHeight: 520)
         }
         .defaultSize(width: 1240, height: 820)
+        .commands {
+            // 菜单栏：AgentDock → 语言 / Language；帮助 → 使用引导
+            CommandGroup(after: .appSettings) {
+                Menu("语言 / Language") {
+                    Button((appLang == "zh" ? "✓ " : "") + "中文") { switchLanguage(to: "zh") }
+                    Button((appLang == "en" ? "✓ " : "") + "English") { switchLanguage(to: "en") }
+                }
+            }
+            CommandGroup(replacing: .help) {
+                Button(tr("使用引导", "Getting started guide")) { NotificationCenter.default.post(name: .showGuide, object: nil) }
+            }
+        }
     }
 }
 
