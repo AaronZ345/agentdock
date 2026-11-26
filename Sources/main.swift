@@ -242,7 +242,7 @@ if let i = args.firstIndex(of: "--test-press"), args.count > i + 2 {
             Thread.sleep(forTimeInterval: 0.8)
             continue
         }
-        let hits = axNodes(ax).filter { ["AXButton", "AXMenuItem", "AXMenuButton", "AXPopUpButton", "AXCheckBox"].contains($0.role) && ($0.label == label || (label.count > 1 && $0.label.contains(label))) }
+        let hits = axNodes(ax).filter { ["AXButton", "AXMenuItem", "AXMenuButton", "AXPopUpButton", "AXCheckBox", "AXRadioButton"].contains($0.role) && ($0.label == label || (label.count > 1 && $0.label.contains(label))) }
         log("test-press \(label): \(hits.map { "\($0.role) \($0.label.prefix(40))" })")
         if let h = hits.first { log("test-press \(label) result=\(AXUIElementPerformAction(h.el, kAXPressAction as CFString).rawValue)") }
         Thread.sleep(forTimeInterval: 1.5)
@@ -314,6 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct AgentDockApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = Model()
+    @ObservedObject private var lang = LangStore.shared   // 菜单栏文字跟着语言变
 
     var body: some Scene {
         Window("AgentDock", id: "main") {
@@ -324,8 +325,8 @@ struct AgentDockApp: App {
             // 菜单栏：AgentDock → 语言 / Language；帮助 → 使用引导
             CommandGroup(after: .appSettings) {
                 Menu("语言 / Language") {
-                    Button((appLang == "zh" ? "✓ " : "") + "中文") { switchLanguage(to: "zh") }
-                    Button((appLang == "en" ? "✓ " : "") + "English") { switchLanguage(to: "en") }
+                    Button((lang.code == "zh" ? "✓ " : "") + "中文") { switchLanguage(to: "zh") }
+                    Button((lang.code == "en" ? "✓ " : "") + "English") { switchLanguage(to: "en") }
                 }
             }
             CommandGroup(replacing: .help) {

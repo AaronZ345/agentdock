@@ -180,6 +180,7 @@ func hhmm(_ d: Date) -> String {
 
 struct RootView: View {
     @ObservedObject var model: Model
+    @ObservedObject private var lang = LangStore.shared   // 语言一变整个窗口重画
     @State private var showGuide = !UserDefaults.standard.bool(forKey: onboardedKey) && !headless
     @State private var editingId: String?     // 正在原地改名的会话
     @State private var editText = ""
@@ -200,6 +201,7 @@ struct RootView: View {
                 WebView(web: model.chat.web).ignoresSafeArea(edges: .top)
             }
         }
+        .id(lang.code)
         .navigationTitle("")
         .background(WindowHook())
         .sheet(isPresented: $showGuide) {
@@ -489,16 +491,14 @@ struct AgentCheck: View {
 
 /// 界面语言切换：两个选项始终用各自的语言显示；切换后应用自动重启
 struct LanguageSwitcher: View {
-    @State private var lang = appLang
+    @ObservedObject private var store = LangStore.shared
     var body: some View {
         VStack(alignment: .trailing, spacing: 3) {
-            Picker("", selection: $lang) {
+            Picker("", selection: Binding(get: { store.code }, set: { switchLanguage(to: $0) })) {
                 Text("中文").tag("zh")
                 Text("English").tag("en")
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
-            .onChange(of: lang) { switchLanguage(to: $0) }
-            Text(tr("切换后会自动重启", "AgentDock restarts to apply")).font(.caption2).foregroundStyle(.tertiary)
         }
     }
 }

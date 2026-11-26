@@ -32,7 +32,7 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 ## 界面语言
 
 - 中文（默认）和英文两套。界面文案统一写成 `tr("中文", "English")`（`Sources/Lang.swift`），聊天页里同样用 `tr('中文','English')`，语言由 Swift 在页面加载前注入 `window.AD_LANG`。
-- 切换在首页右上角和引导第一页，存在 `appLanguage`，切换后自动重启生效。测试或截图可以临时用 `--lang en` / `--lang zh` 启动，不改保存的设置。
+- 切换在首页右上角和引导第一页，存在 `appLanguage`，切换立即生效（窗口重画、聊天页重新加载、会话列表重扫），不用重启。测试或截图可以临时用 `--lang en` / `--lang zh` 启动，不改保存的设置。
 - 不翻译的：匹配原应用界面的文字（`Labels.swift`）、写进数据里的内部取值（大类状态“进行中”、结论“有效”、建议类型“新大类”等，显示时用 `stateLabel()` 转换）、日志、给汇总模型的中文提示词（英文模式下在提示词末尾追加“用英文写”的要求）。
 - 演示截图两种语言各一套：`--lang zh --demo-shots docs/images`、`--lang en --demo-shots docs/images/en`。
 

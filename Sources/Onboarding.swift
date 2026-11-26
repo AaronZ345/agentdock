@@ -7,6 +7,7 @@ let onboardedKey = "onboarded.v1"
 
 struct OnboardingView: View {
     @ObservedObject var model: Model
+    @ObservedObject private var lang = LangStore.shared
     let done: () -> Void
     @State var step = 0
     @State private var trusted = AXIsProcessTrusted()

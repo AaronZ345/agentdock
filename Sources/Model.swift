@@ -219,6 +219,8 @@ final class Model: ObservableObject {
             watchers.append(FileWatcher(paths: [r.dir], accept: r.accept) { [weak self] in self?.scheduleRefresh() })
         }
         ClaudeSidebar.shared.onChange = { [weak self] in self?.scheduleRefresh() }
+        // 切换语言：会话列表里的模型名、权限名是扫描时生成的，重扫一遍
+        NotificationCenter.default.addObserver(forName: .languageChanged, object: nil, queue: .main) { [weak self] _ in self?.refresh() }
         if !demoMode { ClaudeSidebar.shared.start(claudeApps.map(\.path)) }
         // 原应用退出：会话都不在跑了，马上刷新
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] n in
@@ -527,6 +529,15 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         cfg.userContentController.add(self, name: "ad")
         // 告诉聊天页用哪种语言（页面里用 tr('中文','English') 取文案）
         cfg.userContentController.addUserScript(WKUserScript(source: "window.AD_LANG = '\(appLang)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // 切换语言：换掉注入的语言、重新加载聊天页（加载完会把当前会话再推一遍）
+        NotificationCenter.default.addObserver(forName: .languageChanged, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            let uc = self.web.configuration.userContentController
+            uc.removeAllUserScripts()
+            uc.addUserScript(WKUserScript(source: "window.AD_LANG = '\(appLang)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            self.ready = false
+            self.web.reload()
+        }
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         let res = Bundle.main.resourceURL!
