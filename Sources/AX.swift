@@ -129,7 +129,7 @@ func findButton(_ app: AXUIElement, _ match: (AXNode) -> Bool) -> AXNode? {
 /// 应用没开就在后台启动（不抢前台），等它的主窗口出现。用到哪个应用才启动哪个
 func ensureRunning(_ path: String) async throws -> NSRunningApplication {
     if let a = runningApp(path) { return a }
-    guard FileManager.default.fileExists(atPath: path) else { throw SendError(message: "没装 \((path as NSString).lastPathComponent)") }
+    guard FileManager.default.fileExists(atPath: path) else { throw SendError(message: tr("没装 \((path as NSString).lastPathComponent)", "\((path as NSString).lastPathComponent) isn’t installed")) }
     let cfg = NSWorkspace.OpenConfiguration()
     cfg.activates = false
     _ = try await NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: cfg)
@@ -142,7 +142,7 @@ func ensureRunning(_ path: String) async throws -> NSRunningApplication {
             .filter { (axGet($0, kAXSubroleAttribute) as String?) == kAXStandardWindowSubrole }
         if !wins.isEmpty { await sleep(1.5); return a }   // 窗口出来后再等一下界面加载完
     }
-    throw SendError(message: "\((path as NSString).lastPathComponent) 启动超时")
+    throw SendError(message: tr("\((path as NSString).lastPathComponent) 启动超时", "\((path as NSString).lastPathComponent) took too long to launch"))
 }
 
 // MARK: Claude 侧栏的未读蓝点

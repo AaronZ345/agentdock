@@ -29,9 +29,12 @@
   <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Apple%20芯片%20%7C%20Intel-通用-blue" alt="Apple 芯片和 Intel 通用">
   <a href="https://github.com/attitudechunfeng/agentdock/releases"><img src="https://img.shields.io/github/downloads/attitudechunfeng/agentdock/total?label=downloads" alt="downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license Apache-2.0"></a>
 </p>
 
 ![AgentDock 主界面](docs/images/main.png)
+
+> 界面支持中文和英文，默认中文，可以在首页切换。
 
 ## 为什么做它
 
@@ -99,7 +102,7 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 - **管会话**：右键会话可以改名、分叉、置顶、归档、删除，或者归到某个项目。
 - **关窗口不退出**：点红点只是收起窗口，后台继续同步；点程序坞图标再打开，⌘Q 才是真退出。
 
-<p align="center"><img src="docs/images/guide.png" width="520" alt="首次启动引导"></p>
+<p align="center"><img src="docs/images/guide.png" width="760" alt="首次启动引导"></p>
 
 ## 常见问题
 
@@ -125,3 +128,7 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 ```
 
 编译并装到“应用程序”。实现原理、各功能细节和调试方法见 [开发说明](docs/DEVELOPMENT.md)。
+
+## 协议
+
+AgentDock 以 [Apache License 2.0](LICENSE) 开源。聊天页渲染 Markdown 用到的 [marked](https://github.com/markedjs/marked) 是 MIT 协议。

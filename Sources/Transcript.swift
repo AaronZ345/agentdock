@@ -32,7 +32,7 @@ private let maxItems = 400
 private let maxField = 4000
 
 private func cut(_ s: String) -> String {
-    s.count > maxField ? String(s.prefix(maxField)) + "\n…（已截断）" : s
+    s.count > maxField ? String(s.prefix(maxField)) + tr("\n…（已截断）", "\n…(truncated)") : s
 }
 
 private func isNoise(_ s: String) -> Bool {
@@ -62,6 +62,14 @@ private func str(_ args: [String: Any], _ keys: String...) -> String {
     return ""
 }
 
+/// 几个要在逻辑里比对的动作名（Codex 步骤分类用），统一在这里取，两种语言都对得上
+private enum V {
+    static let runCommand = tr("运行命令", "Run command")
+    static let wait = tr("等待", "Wait")
+    static let waitBackground = tr("等待后台任务", "Wait for background task")
+    static let editFile = tr("编辑文件", "Edit file")
+}
+
 /// 工具名 + 参数 → (动作, 对象)。参照 Claude / Codex 原生界面的说法，原始参数只在展开时显示
 private func label(_ name: String, _ args: [String: Any]) -> (String, String) {
     let short = name.hasPrefix("mcp__") ? String(name.split(separator: "_").last ?? "") : name
@@ -69,38 +77,38 @@ private func label(_ name: String, _ args: [String: Any]) -> (String, String) {
     // Claude Code
     case "Bash":
         let d = str(args, "description")
-        return d.isEmpty ? ("运行命令", firstLine(str(args, "command"))) : ("运行命令", d)
-    case "Read": return ("读取", base(str(args, "file_path")))
-    case "Edit", "MultiEdit": return ("编辑", base(str(args, "file_path")))
-    case "Write": return ("写入", base(str(args, "file_path")))
-    case "NotebookEdit": return ("编辑", base(str(args, "notebook_path")))
-    case "Grep": return ("搜索", firstLine(str(args, "pattern")))
-    case "Glob": return ("查找文件", firstLine(str(args, "pattern")))
-    case "WebSearch": return ("搜索网页", firstLine(str(args, "query")))
-    case "WebFetch": return ("读取网页", URL(string: str(args, "url"))?.host ?? "")
-    case "Agent", "Task": return ("子任务", firstLine(str(args, "description")))
-    case "Skill": return ("使用技能", str(args, "skill"))
-    case "ToolSearch": return ("加载工具", "")
-    case "TodoWrite", "mcp__ccd_turn__update_plan": return ("更新任务列表", "")
-    case "mcp__ccd_turn__wrap_up": return ("整理小结", "")
-    case "AskUserQuestion": return ("向你提问", "")
-    case "Artifact": return ("发布页面", "")
-    case "SendUserFile": return ("发送文件", "")
+        return d.isEmpty ? (V.runCommand, firstLine(str(args, "command"))) : (V.runCommand, d)
+    case "Read": return (tr("读取", "Read"), base(str(args, "file_path")))
+    case "Edit", "MultiEdit": return (tr("编辑", "Edit"), base(str(args, "file_path")))
+    case "Write": return (tr("写入", "Write"), base(str(args, "file_path")))
+    case "NotebookEdit": return (tr("编辑", "Edit"), base(str(args, "notebook_path")))
+    case "Grep": return (tr("搜索", "Search"), firstLine(str(args, "pattern")))
+    case "Glob": return (tr("查找文件", "Find files"), firstLine(str(args, "pattern")))
+    case "WebSearch": return (tr("搜索网页", "Search web"), firstLine(str(args, "query")))
+    case "WebFetch": return (tr("读取网页", "Fetch page"), URL(string: str(args, "url"))?.host ?? "")
+    case "Agent", "Task": return (tr("子任务", "Subtask"), firstLine(str(args, "description")))
+    case "Skill": return (tr("使用技能", "Use skill"), str(args, "skill"))
+    case "ToolSearch": return (tr("加载工具", "Load tools"), "")
+    case "TodoWrite", "mcp__ccd_turn__update_plan": return (tr("更新任务列表", "Update task list"), "")
+    case "mcp__ccd_turn__wrap_up": return (tr("整理小结", "Wrap up"), "")
+    case "AskUserQuestion": return (tr("向你提问", "Ask you"), "")
+    case "Artifact": return (tr("发布页面", "Publish page"), "")
+    case "SendUserFile": return (tr("发送文件", "Send file"), "")
     // Codex
-    case "wait": return ("等待后台任务", "")
-    case "sleep": return ("等待", "")
-    case "exec_command": return ("运行命令", firstLine(str(args, "cmd")))
-    case "apply_patch": return ("编辑文件", "")
+    case "wait": return (V.waitBackground, "")
+    case "sleep": return (V.wait, "")
+    case "exec_command": return (V.runCommand, firstLine(str(args, "cmd")))
+    case "apply_patch": return (V.editFile, "")
     // Antigravity
-    case "run_command": return ("运行命令", firstLine(str(args, "CommandLine")))
-    case "read_file", "view_file": return ("读取", base(str(args, "AbsolutePath", "path", "file_path")))
-    case "edit_file": return ("编辑", base(str(args, "TargetFile", "AbsolutePath", "path")))
-    case "write_file": return ("写入", base(str(args, "TargetFile", "AbsolutePath", "path")))
-    case "search_web": return ("搜索网页", firstLine(str(args, "query", "Query")))
-    case "manage_task": return ("管理任务", "")
-    case "invoke_subagent": return ("子任务", "")
+    case "run_command": return (V.runCommand, firstLine(str(args, "CommandLine")))
+    case "read_file", "view_file": return (tr("读取", "Read"), base(str(args, "AbsolutePath", "path", "file_path")))
+    case "edit_file": return (tr("编辑", "Edit"), base(str(args, "TargetFile", "AbsolutePath", "path")))
+    case "write_file": return (tr("写入", "Write"), base(str(args, "TargetFile", "AbsolutePath", "path")))
+    case "search_web": return (tr("搜索网页", "Search web"), firstLine(str(args, "query", "Query")))
+    case "manage_task": return (tr("管理任务", "Manage tasks"), "")
+    case "invoke_subagent": return (tr("子任务", "Subtask"), "")
     default:
-        if name.hasPrefix("mcp__Claude_Browser") || name.hasPrefix("mcp__claude-in-chrome") { return ("操作浏览器", short) }
+        if name.hasPrefix("mcp__Claude_Browser") || name.hasPrefix("mcp__claude-in-chrome") { return (tr("操作浏览器", "Use browser"), short) }
         return (short, "")
     }
 }
@@ -110,15 +118,15 @@ private func codexScriptLabel(_ code: String) -> (String, String) {
     let calls = code.matches(of: #/tools\.([A-Za-z0-9_]+)\(/#).map { String($0.1) }
     let cmds = code.matches(of: #/"?cmd"?\s*:\s*"((?:[^"\\]|\\.)*)"/#).map { String($0.1).replacingOccurrences(of: "\\\"", with: "\"") }
     if !cmds.isEmpty {
-        return cmds.count == 1 ? ("运行命令", firstLine(cmds[0])) : ("运行 \(cmds.count) 条命令", firstLine(cmds[0]))
+        return cmds.count == 1 ? (V.runCommand, firstLine(cmds[0])) : (tr("运行 \(cmds.count) 条命令", "Run \(cmds.count) commands"), firstLine(cmds[0]))
     }
     if let c = calls.first(where: { $0 != "text" }) {
-        if c.contains("imagegen") { return ("生成图片", "") }
-        if c.contains("search") { return ("搜索网页", "") }
-        if c == "write_stdin" { return ("向终端输入", "") }
+        if c.contains("imagegen") { return (tr("生成图片", "Generate image"), "") }
+        if c.contains("search") { return (tr("搜索网页", "Search web"), "") }
+        if c == "write_stdin" { return (tr("向终端输入", "Write to terminal"), "") }
         return label(c, [:])
     }
-    return ("运行脚本", "")
+    return (tr("运行脚本", "Run script"), "")
 }
 
 struct BgTask: Encodable {
@@ -316,10 +324,10 @@ private func claudeBgLine(_ line: UnsafeRawBufferPointer, _ h: inout Hist) {
             switch c["name"] as? String {
             case "CronCreate":
                 let p = (inp["prompt"] as? String ?? "").split(separator: "\n").first.map { String($0.prefix(60)) } ?? ""
-                h.jobTools[id] = "定时 \(inp["cron"] as? String ?? "")：\(p)"
+                h.jobTools[id] = tr("定时 \(inp["cron"] as? String ?? "")：\(p)", "Scheduled \(inp["cron"] as? String ?? ""): \(p)")
             case "Monitor":
                 let d = (inp["description"] as? String) ?? String((inp["command"] as? String ?? "").prefix(60))
-                h.jobTools[id] = "监听：\(d)"
+                h.jobTools[id] = tr("监听：\(d)", "Monitor: \(d)")
             case "CronDelete":
                 for case let v as String in inp.values { h.jobs[v] = nil }
             case "TaskStop":
@@ -523,7 +531,7 @@ private func parseCodexItems(_ lines: [Substring], _ b: inout Builder) -> Bool {
                 let args = (try? JSONSerialization.jsonObject(with: Data(input.utf8)) as? [String: Any]) ?? [:]
                 let (verb, target) = name == "exec" || name == "js" ? codexScriptLabel(name == "js" ? str(args, "code") : input) : label(name, args)
                 var item = Item(id: cid, kind: "tool", name: name, verb: verb, summary: target, input: cut(input), done: false, ts: ts)
-                item.cat = verb.hasPrefix("等待") ? "wait" : verb == "编辑文件" ? "edit" : "cmd"
+                item.cat = verb == V.wait || verb == V.waitBackground ? "wait" : verb == V.editFile ? "edit" : "cmd"
                 pending[cid] = item
                 pendingOrder.append(cid)
             case "function_call_output", "custom_tool_call_output":
@@ -564,8 +572,8 @@ private func parseCodexItems(_ lines: [Substring], _ b: inout Builder) -> Bool {
                 let types = acts.compactMap { $0["type"] as? String }
                 let cat = types.isEmpty || types.contains("unknown") ? "cmd"
                     : types.allSatisfy { $0 == "read" } ? "read" : types.contains("search") ? "search" : types.contains("list_files") ? "list" : "cmd"
-                let verb = ["read": "读取", "search": "搜索", "list": "浏览文件", "cmd": "运行命令"][cat]!
-                let target = cat == "read" ? acts.compactMap { $0["name"] as? String }.joined(separator: "、") : firstLine(cmd)
+                let verb = ["read": tr("读取", "Read"), "search": tr("搜索", "Search"), "list": tr("浏览文件", "Browse files"), "cmd": V.runCommand][cat]!
+                let target = cat == "read" ? acts.compactMap { $0["name"] as? String }.joined(separator: tr("、", ", ")) : firstLine(cmd)
                 var item = Item(id: id, kind: "tool", name: "exec_command", verb: verb, summary: target,
                                 input: cut(cmd), output: cut(out), ts: ts)
                 item.cat = cat
@@ -592,8 +600,8 @@ private func parseCodexItems(_ lines: [Substring], _ b: inout Builder) -> Bool {
                     if kind == "delete" { turnFiles[path]!.kind = "delete" }
                     names.append(base(path))
                 }
-                var item = Item(id: id, kind: "tool", name: "apply_patch", verb: "编辑文件",
-                                summary: names.count > 1 ? "\(names[0]) 等 \(names.count) 个" : names.first ?? "",
+                var item = Item(id: id, kind: "tool", name: "apply_patch", verb: V.editFile,
+                                summary: names.count > 1 ? tr("\(names[0]) 等 \(names.count) 个", "\(names[0]) and \(names.count - 1) more") : names.first ?? "",
                                 input: cut(diffs.joined(separator: "\n\n")), ts: ts)
                 item.cat = "edit"
                 b.add(item)
@@ -601,23 +609,23 @@ private func parseCodexItems(_ lines: [Substring], _ b: inout Builder) -> Bool {
                 let args = it["arguments"] as? [String: Any] ?? [:]
                 let result = text((it["result"] as? [String: Any])?["content"])
                 let tool = it["tool"] as? String ?? "mcp"
-                let fallback = tool.contains("search") ? "搜索网页" : tool.contains("image") ? "生成图片" : tool
+                let fallback = tool.contains("search") ? tr("搜索网页", "Search web") : tool.contains("image") ? tr("生成图片", "Generate image") : tool
                 var item = Item(id: id, kind: "tool", name: tool,
                                 verb: str(args, "title").isEmpty ? fallback : str(args, "title"),
                                 // 集成的名字：电脑操作类插件写“电脑操作”，其他用 MCP 服务名
-                                summary: (it["pluginId"] as? String ?? "").contains("computer-use") ? "电脑操作" : (it["server"] as? String ?? "集成"),
+                                summary: (it["pluginId"] as? String ?? "").contains("computer-use") ? tr("电脑操作", "Computer use") : (it["server"] as? String ?? tr("集成", "Integration")),
                                 input: cut(pretty(args)), output: cut(result), ts: ts)
                 item.cat = "mcp"
                 b.add(item)
             case "Extension":
                 if it["kind"] as? String == "clock.sleep" {
                     let ms = (it["durationMs"] as? Int) ?? 0
-                    var item = Item(id: id, kind: "tool", name: "sleep", verb: "等待", summary: "\(ms / 1000) 秒", ts: ts)
+                    var item = Item(id: id, kind: "tool", name: "sleep", verb: V.wait, summary: tr("\(ms / 1000) 秒", "\(ms / 1000)s"), ts: ts)
                     item.cat = "wait"
                     b.add(item)
                 }
             case "ContextCompaction":
-                b.add(Item(id: id, kind: "compact", text: "上下文已自动压缩", ts: ts))
+                b.add(Item(id: id, kind: "compact", text: tr("上下文已自动压缩", "Context auto-compacted"), ts: ts))
             default: break
             }
         default: break
@@ -714,7 +722,7 @@ private func parseClaude(_ lines: [Substring], _ b: inout Builder) {
                         let id = String(m.1)
                         let file = out.firstMatch(of: #/written to: (\S+?\.output)/#).map { String($0.1) } ?? ""
                         if b.tasks[id] == nil {
-                            b.tasks[id] = BgTask(id: id, started: ts, desc: toolDesc[tid] ?? "后台任务", status: "running", outputFile: file)
+                            b.tasks[id] = BgTask(id: id, started: ts, desc: toolDesc[tid] ?? tr("后台任务", "Background task"), status: "running", outputFile: file)
                             b.taskOrder.append(id)
                         }
                     }

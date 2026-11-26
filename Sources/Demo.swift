@@ -31,27 +31,27 @@ func demoSessions() -> [Session] {
         return x
     }
     return [
-        s("demo-checkout", .claude, "Claude", claudeApp, "结账页改成单页流程", "shop-web", 1, running: true, model: "Opus 5.5 高", perm: "接受编辑"),
-        s("demo-cache", .codex, "Codex", codexApp, "订单接口加缓存", "shop-api", 3, running: true, model: "GPT-6.2 高", perm: "自动"),
-        s("demo-stock", .claude, "Claude", claudeApp, "修复购物车并发扣库存", "shop-api", 12, unread: true, model: "Opus 5.5 高", perm: "手动"),
-        s("demo-push", .antigravity, "Antigravity", agyApp, "iOS 推送集成", "shop-ios", 25, waiting: true, model: "Gemini 4 Neon", perm: "Default"),
-        s("demo-report", .codex, "Codex", codexApp, "周报数据看板", "analytics", 48, unread: true, model: "GPT-6.2 中", perm: "自动"),
-        s("demo-a11y", .claude, "Claude", claudeApp, "登录页无障碍改进", "shop-web", 95, model: "Sonnet 5.5", perm: "接受编辑"),
-        s("demo-vector", .antigravity, "Antigravity", agyApp, "评估向量数据库选型", "search", 180, model: "Gemini 4 Neon", perm: "Default"),
-        s("demo-docs", .codex, "Codex", codexApp, "整理 API 文档", "shop-api", 60 * 26, model: "GPT-6.2 中", perm: "自动"),
-        s("demo-ab", .claude, "Claude", claudeApp, "首页 A/B 实验分析", "analytics", 60 * 30, model: "Opus 5.5 高", perm: "手动"),
+        s("demo-checkout", .claude, "Claude", claudeApp, tr("结账页改成单页流程", "Make checkout a single page"), "shop-web", 1, running: true, model: tr("Opus 5.5 高", "Opus 5.5 High"), perm: tr("接受编辑", "Accept edits")),
+        s("demo-cache", .codex, "Codex", codexApp, tr("订单接口加缓存", "Cache the order API"), "shop-api", 3, running: true, model: tr("GPT-6.2 高", "GPT-6.2 High"), perm: tr("自动", "Auto")),
+        s("demo-stock", .claude, "Claude", claudeApp, tr("修复购物车并发扣库存", "Fix concurrent stock deduction"), "shop-api", 12, unread: true, model: tr("Opus 5.5 高", "Opus 5.5 High"), perm: tr("手动", "Ask")),
+        s("demo-push", .antigravity, "Antigravity", agyApp, tr("iOS 推送集成", "iOS push notifications"), "shop-ios", 25, waiting: true, model: "Gemini 4 Neon", perm: "Default"),
+        s("demo-report", .codex, "Codex", codexApp, tr("周报数据看板", "Weekly metrics dashboard"), "analytics", 48, unread: true, model: tr("GPT-6.2 中", "GPT-6.2 Medium"), perm: tr("自动", "Auto")),
+        s("demo-a11y", .claude, "Claude", claudeApp, tr("登录页无障碍改进", "Login page accessibility"), "shop-web", 95, model: "Sonnet 5.5", perm: tr("接受编辑", "Accept edits")),
+        s("demo-vector", .antigravity, "Antigravity", agyApp, tr("评估向量数据库选型", "Pick a vector database"), "search", 180, model: "Gemini 4 Neon", perm: "Default"),
+        s("demo-docs", .codex, "Codex", codexApp, tr("整理 API 文档", "Clean up API docs"), "shop-api", 60 * 26, model: tr("GPT-6.2 中", "GPT-6.2 Medium"), perm: tr("自动", "Auto")),
+        s("demo-ab", .claude, "Claude", claudeApp, tr("首页 A/B 实验分析", "Homepage A/B test analysis"), "analytics", 60 * 30, model: tr("Opus 5.5 高", "Opus 5.5 High"), perm: tr("手动", "Ask")),
     ]
 }
 
 func demoDetail(_ s: Session) -> Detail {
     guard s.id == "demo-checkout" else {
         return Detail(items: [Item(id: s.id + "-u", kind: "user", text: s.title, ts: iso(30)),
-                              Item(id: s.id + "-a", kind: "assistant", text: "好的，我先看一下相关代码。", ts: iso(29))],
+                              Item(id: s.id + "-a", kind: "assistant", text: tr("好的，我先看一下相关代码。", "Sure, let me look at the relevant code first."), ts: iso(29))],
                       tasks: [], suggestion: nil, plan: [])
     }
     var items: [Item] = [
-        Item(id: "u1", kind: "user", text: "结账现在要走 3 个页面，流失很多。改成单页：地址、配送、支付放在一页，地址填完自动算运费。", ts: iso(42)),
-        Item(id: "t1", kind: "thinking", text: "先找到现有的三个结账页面和它们之间传的数据，再决定合并后的组件结构。", ts: iso(41)),
+        Item(id: "u1", kind: "user", text: tr("结账现在要走 3 个页面，流失很多。改成单页：地址、配送、支付放在一页，地址填完自动算运费。", "Checkout takes 3 pages and we lose a lot of people. Make it one page: address, shipping and payment together, and calculate shipping as soon as the address is filled in."), ts: iso(42)),
+        Item(id: "t1", kind: "thinking", text: tr("先找到现有的三个结账页面和它们之间传的数据，再决定合并后的组件结构。", "First find the three checkout pages and the data passed between them, then decide the merged component structure."), ts: iso(41)),
     ]
     func tool(_ id: String, _ name: String, _ verb: String, _ target: String, _ out: String, _ min: Double, cat: String = "cmd") -> Item {
         var t = Item(id: id, kind: "tool", name: name, verb: verb, summary: target, input: target, output: out, done: true, ts: iso(min))
@@ -59,19 +59,19 @@ func demoDetail(_ s: Session) -> Detail {
         return t
     }
     items += [
-        tool("c1", "Grep", "搜索", "checkout", "src/pages/checkout/Address.tsx\nsrc/pages/checkout/Shipping.tsx\nsrc/pages/checkout/Payment.tsx", 41, cat: "search"),
-        tool("c2", "Read", "读取", "Shipping.tsx", "（212 行）", 40, cat: "read"),
-        Item(id: "n1", kind: "note", text: "三个页面之间靠 URL 参数传地址 id，运费在第二页才请求。合并后改成一个表单状态，地址变化时防抖请求运费。", ts: iso(39)),
-        tool("c3", "Edit", "编辑文件", "src/pages/checkout/Checkout.tsx", "", 30, cat: "edit"),
-        tool("c4", "Edit", "编辑文件", "src/api/shipping.ts", "", 26, cat: "edit"),
-        tool("c5", "Bash", "运行命令", "npm test -- checkout", "PASS  checkout/Checkout.test.tsx (14 tests)\nTests: 14 passed, 14 total", 20),
+        tool("c1", "Grep", tr("搜索", "Search"), "checkout", "src/pages/checkout/Address.tsx\nsrc/pages/checkout/Shipping.tsx\nsrc/pages/checkout/Payment.tsx", 41, cat: "search"),
+        tool("c2", "Read", tr("读取", "Read"), "Shipping.tsx", tr("（212 行）", "(212 lines)"), 40, cat: "read"),
+        Item(id: "n1", kind: "note", text: tr("三个页面之间靠 URL 参数传地址 id，运费在第二页才请求。合并后改成一个表单状态，地址变化时防抖请求运费。", "The pages pass the address id through URL parameters, and shipping is only requested on page two. After merging, one form state; shipping is requested (debounced) whenever the address changes."), ts: iso(39)),
+        tool("c3", "Edit", tr("编辑文件", "Edit file"), "src/pages/checkout/Checkout.tsx", "", 30, cat: "edit"),
+        tool("c4", "Edit", tr("编辑文件", "Edit file"), "src/api/shipping.ts", "", 26, cat: "edit"),
+        tool("c5", "Bash", tr("运行命令", "Run command"), "npm test -- checkout", "PASS  checkout/Checkout.test.tsx (14 tests)\nTests: 14 passed, 14 total", 20),
     ]
     var end = Item(id: "e1", kind: "turnend", text: "x", ts: iso(19), took: 23 * 60 * 1000)
     end.files = [FileStat(path: "src/pages/checkout/Checkout.tsx", kind: "add", add: 186, del: 0),
                  FileStat(path: "src/api/shipping.ts", kind: "edit", add: 24, del: 9),
                  FileStat(path: "src/pages/checkout/Shipping.tsx", kind: "delete", add: 0, del: 212)]
     items += [
-        Item(id: "a1", kind: "assistant", text: """
+        Item(id: "a1", kind: "assistant", text: tr("""
         结账已改成单页，测试 14 个全部通过。
 
         - **一页填完**：地址、配送方式、支付方式在同一页，从上到下填。
@@ -79,15 +79,23 @@ func demoDetail(_ s: Session) -> Detail {
         - **旧页面**：原来三个页面删掉了，旧链接会跳到新页面。
 
         还没做：手机上的布局只在模拟器里看过。
-        """, ts: iso(19)),
+        """, """
+        Checkout is now a single page, and all 14 tests pass.
+
+        - **One page**: address, shipping method and payment on one page, filled top to bottom.
+        - **Shipping calculated automatically**: requested 0.4 s after the address is complete, no more "Next" button.
+        - **Old pages**: the three old pages are gone; old links redirect to the new one.
+
+        Not done yet: the mobile layout has only been checked in the simulator.
+        """), ts: iso(19)),
         end,
-        Item(id: "u2", kind: "user", text: "可以，再把优惠券输入也放进来，放在支付上面。", ts: iso(3)),
-        tool("c6", "Read", "读取", "Coupon.tsx", "（88 行）", 2, cat: "read"),
+        Item(id: "u2", kind: "user", text: tr("可以，再把优惠券输入也放进来，放在支付上面。", "Looks good. Add the coupon field too, above payment."), ts: iso(3)),
+        tool("c6", "Read", tr("读取", "Read"), "Coupon.tsx", tr("（88 行）", "(88 lines)"), 2, cat: "read"),
     ]
     var d = Detail(items: items, tasks: [], suggestion: nil,
-                   plan: [PlanItem(content: "找到优惠券组件和校验接口", status: "completed"),
-                          PlanItem(content: "放进结账页、接上金额重算", status: "in_progress"),
-                          PlanItem(content: "补测试", status: "pending")])
+                   plan: [PlanItem(content: tr("找到优惠券组件和校验接口", "Find the coupon component and validation API"), status: "completed"),
+                          PlanItem(content: tr("放进结账页、接上金额重算", "Add it to checkout and recalculate totals"), status: "in_progress"),
+                          PlanItem(content: tr("补测试", "Add tests"), status: "pending")])
     d.model = s.model
     return d
 }
@@ -96,45 +104,45 @@ func demoProjects() -> [Project] {
     func e(_ t: String, _ state: String = "", ev: String = "", date: String = "", s: String = "") -> BoardEntry {
         BoardEntry(text: t, date: date, session: s, state: state, evidence: ev)
     }
-    var shop = Project(name: "电商网站改版")
-    shop.goal = "下单转化率从 2.1% 提到 3% 以上，结账页首屏加载 1 秒内，上线前不出现超卖。"
-    shop.status = "单页结账已完成、正在加优惠券；库存并发问题定位到扣减不是原子操作，修复方案等你定。"
-    shop.decisions = [e("库存扣减用数据库行锁还是 Redis 原子扣减？行锁改动小，Redis 扛得住大促", s: "修复购物车并发扣库存")]
+    var shop = Project(name: tr("电商网站改版", "Store redesign"))
+    shop.goal = tr("下单转化率从 2.1% 提到 3% 以上，结账页首屏加载 1 秒内，上线前不出现超卖。", "Raise checkout conversion from 2.1% to 3%+, load checkout in under 1 s, and never oversell before launch.")
+    shop.status = tr("单页结账已完成、正在加优惠券；库存并发问题定位到扣减不是原子操作，修复方案等你定。", "Single-page checkout is done and coupons are in progress. The stock bug is traced to a non-atomic deduction; the fix needs your decision.")
+    shop.decisions = [e(tr("库存扣减用数据库行锁还是 Redis 原子扣减？行锁改动小，Redis 扛得住大促", "Deduct stock with a database row lock or an atomic Redis decrement? Row lock is a smaller change; Redis holds up better during sales."), s: tr("修复购物车并发扣库存", "Fix concurrent stock deduction"))]
     shop.sessions = ["demo-checkout", "demo-stock", "demo-cache", "demo-a11y", "demo-docs"]
     shop.updated = ago(2)
-    var t1 = Track(title: "结账转化率", goal: "下单转化率 ≥ 3%")
-    t1.state = "进行中"; t1.now = "单页结账已上测试环境，正在加优惠券；转化率要上线一周后才有数。"; t1.updated = "11-26"
-    t1.learned = [e("把多步表单合成一页，比优化单步文案更有效", "有效", ev: "灰度 10% 用户，结账完成率 41% → 52%"),
-                  e("进结账前强制注册会显著流失", "无效", ev: "去掉强制注册后完成率 +6%"),
-                  e("运费在填地址时就算出来，减少中途放弃", "待验证")]
-    t1.next = [e("优惠券放到支付上方并重算金额"), e("手机端真机走一遍")]
-    t1.log = [e("灰度结果：完成率 41% → 52%", date: "11-24"), e("单页结账合入测试环境", date: "11-26")]
-    var t2 = Track(title: "库存不超卖", goal: "并发 500 下单压测零超卖")
-    t2.state = "等你定"; t2.now = "已复现：两笔订单同时扣同一件库存会都成功。修复方案二选一，等你定。"; t2.updated = "11-26"
-    t2.learned = [e("先查后扣在并发下必然超卖，扣减要做成一步原子操作", "有效", ev: "压测 200 并发复现 3 次超卖")]
-    t2.next = [e("定方案后补压测脚本")]
-    var t3 = Track(title: "首屏性能", goal: "结账页首屏 ≤ 1 秒（4G）")
-    t3.state = "卡住"; t3.now = "首屏 1.6 秒，大头是支付 SDK 同步加载；SDK 方还没给异步版本。"; t3.updated = "11-25"
-    t3.learned = [e("图片懒加载对结账页帮助很小", "无效", ev: "首屏 1.7 → 1.6 秒")]
-    var t4 = Track(title: "无障碍与文档", goal: "登录和结账页通过读屏检查；API 文档覆盖全部接口")
-    t4.state = "已解决"; t4.now = "登录页读屏检查全部通过，API 文档已补齐 32 个接口。"; t4.updated = "11-25"
+    var t1 = Track(title: tr("结账转化率", "Checkout conversion"), goal: tr("下单转化率 ≥ 3%", "Conversion ≥ 3%"))
+    t1.state = "进行中"; t1.now = tr("单页结账已上测试环境，正在加优惠券；转化率要上线一周后才有数。", "Single-page checkout is on staging and coupons are being added; conversion numbers come a week after launch."); t1.updated = "11-26"
+    t1.learned = [e(tr("把多步表单合成一页，比优化单步文案更有效", "Merging a multi-step form into one page beats polishing each step's copy"), "有效", ev: tr("灰度 10% 用户，结账完成率 41% → 52%", "10% rollout: checkout completion 41% → 52%")),
+                  e(tr("进结账前强制注册会显著流失", "Forcing sign-up before checkout drives people away"), "无效", ev: tr("去掉强制注册后完成率 +6%", "Completion +6% after removing forced sign-up")),
+                  e(tr("运费在填地址时就算出来，减少中途放弃", "Showing shipping cost while the address is entered reduces drop-off"), "待验证")]
+    t1.next = [e(tr("优惠券放到支付上方并重算金额", "Put coupons above payment and recalculate totals")), e(tr("手机端真机走一遍", "Walk through on a real phone"))]
+    t1.log = [e(tr("灰度结果：完成率 41% → 52%", "Rollout result: completion 41% → 52%"), date: "11-24"), e(tr("单页结账合入测试环境", "Single-page checkout merged to staging"), date: "11-26")]
+    var t2 = Track(title: tr("库存不超卖", "No overselling"), goal: tr("并发 500 下单压测零超卖", "Zero oversells at 500 concurrent orders"))
+    t2.state = "等你定"; t2.now = tr("已复现：两笔订单同时扣同一件库存会都成功。修复方案二选一，等你定。", "Reproduced: two orders taking the last item at once both succeed. Two possible fixes; your call."); t2.updated = "11-26"
+    t2.learned = [e(tr("先查后扣在并发下必然超卖，扣减要做成一步原子操作", "Check-then-deduct always oversells under concurrency; deduction must be one atomic step"), "有效", ev: tr("压测 200 并发复现 3 次超卖", "3 oversells reproduced at 200 concurrent orders"))]
+    t2.next = [e(tr("定方案后补压测脚本", "Add a load-test script once the fix is chosen"))]
+    var t3 = Track(title: tr("首屏性能", "Checkout load time"), goal: tr("结账页首屏 ≤ 1 秒（4G）", "Checkout first paint ≤ 1 s on 4G"))
+    t3.state = "卡住"; t3.now = tr("首屏 1.6 秒，大头是支付 SDK 同步加载；SDK 方还没给异步版本。", "1.6 s now, mostly the payment SDK loading synchronously; the vendor hasn't shipped an async version yet."); t3.updated = "11-25"
+    t3.learned = [e(tr("图片懒加载对结账页帮助很小", "Lazy-loading images barely helps checkout"), "无效", ev: tr("首屏 1.7 → 1.6 秒", "First paint 1.7 → 1.6 s"))]
+    var t4 = Track(title: tr("无障碍与文档", "Accessibility & docs"), goal: tr("登录和结账页通过读屏检查；API 文档覆盖全部接口", "Login and checkout pass screen-reader checks; API docs cover every endpoint"))
+    t4.state = "已解决"; t4.now = tr("登录页读屏检查全部通过，API 文档已补齐 32 个接口。", "Login passes all screen-reader checks; all 32 endpoints are documented."); t4.updated = "11-25"
     shop.tracks = [t1, t2, t3, t4]
-    shop.suggestions = [BoardSuggestion(kind: "新大类", title: "订单接口缓存", goal: "订单查询 P95 ≤ 120 ms",
-                                        reason: "「订单接口加缓存」会话里已经在做，现有大类装不下")]
+    shop.suggestions = [BoardSuggestion(kind: "新大类", title: tr("订单接口缓存", "Order API caching"), goal: tr("订单查询 P95 ≤ 120 ms", "Order lookup P95 ≤ 120 ms"),
+                                        reason: tr("「订单接口加缓存」会话里已经在做，现有大类装不下", "Already underway in “Cache the order API”, and no current workstream covers it"))]
 
-    var data = Project(name: "数据周报")
-    data.goal = "每周一 9 点前自动出周报看板，核心指标口径和财务一致。"
-    data.status = "看板已能自动生成，GMV 口径和财务差 0.8%，在查退款时间点。"
+    var data = Project(name: tr("数据周报", "Weekly report"))
+    data.goal = tr("每周一 9 点前自动出周报看板，核心指标口径和财务一致。", "Publish the weekly dashboard automatically by 9 am every Monday, with metrics matching finance.")
+    data.status = tr("看板已能自动生成，GMV 口径和财务差 0.8%，在查退款时间点。", "The dashboard generates automatically; GMV differs from finance by 0.8%, checking how refunds are dated.")
     data.sessions = ["demo-report", "demo-ab"]; data.updated = ago(48)
-    var d1 = Track(title: "指标口径对齐", goal: "GMV 与财务差 ≤ 0.1%"); d1.state = "进行中"; d1.now = "差 0.8%，怀疑退款按下单日还是退款日算。"
-    var d2 = Track(title: "自动出报表", goal: "每周一 9 点前自动生成"); d2.state = "已解决"; d2.now = "定时任务已上线，连续两周按时生成。"
+    var d1 = Track(title: tr("指标口径对齐", "Match finance's numbers"), goal: tr("GMV 与财务差 ≤ 0.1%", "GMV within 0.1% of finance")); d1.state = "进行中"; d1.now = tr("差 0.8%，怀疑退款按下单日还是退款日算。", "Off by 0.8%; suspect refunds dated by order day vs. refund day.")
+    var d2 = Track(title: tr("自动出报表", "Automatic reports"), goal: tr("每周一 9 点前自动生成", "Generated by 9 am every Monday")); d2.state = "已解决"; d2.now = tr("定时任务已上线，连续两周按时生成。", "The scheduled job is live and ran on time two weeks in a row.")
     data.tracks = [d1, d2]
 
     var app = Project(name: "iOS App")
-    app.goal = "推送和深链上线，推送打开率 ≥ 8%。"
-    app.status = "推送证书已配好，在等 Antigravity 那边批准修改 Info.plist。"
+    app.goal = tr("推送和深链上线，推送打开率 ≥ 8%。", "Ship push notifications and deep links, push open rate ≥ 8%.")
+    app.status = tr("推送证书已配好，在等 Antigravity 那边批准修改 Info.plist。", "Push certificates are set up; waiting for approval in Antigravity to edit Info.plist.")
     app.sessions = ["demo-push"]; app.updated = ago(25)
-    var a1 = Track(title: "推送集成", goal: "测试机收到推送并能跳转"); a1.state = "进行中"; a1.now = "证书配好，等批准修改 Info.plist 后联调。"
+    var a1 = Track(title: tr("推送集成", "Push integration"), goal: tr("测试机收到推送并能跳转", "Test device receives a push and opens the right screen")); a1.state = "进行中"; a1.now = tr("证书配好，等批准修改 Info.plist 后联调。", "Certificates done; testing end to end once the Info.plist edit is approved.")
     app.tracks = [a1]
     return [shop, app, data]
 }

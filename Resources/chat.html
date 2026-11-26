@@ -336,13 +336,13 @@ textarea::placeholder { color: var(--faint); }
   <button class="btn" id="openApp"></button>
 </header>
 <div id="tasks"></div>
-<div id="scroll"><div id="log"><div class="empty">在左边选一个会话</div></div>
+<div id="scroll"><div id="log"><div class="empty"></div></div>
   <div id="plan"></div>
   <div id="queued"></div>
   <div id="suggest"></div>
   <div style="max-width:780px;margin:0 auto;padding:0 28px 24px"><div id="progress"><span class="star"></span><span id="elapsed"></span><span class="cur" id="cur"></span></div></div>
 </div>
-<div id="newmsg">↓ 有新消息</div>
+<div id="newmsg"></div>
 <footer id="ftr" style="display:none">
   <div class="composer">
     <div id="ask"></div>
@@ -353,12 +353,12 @@ textarea::placeholder { color: var(--faint); }
       <div class="atts" id="atts"></div>
       <textarea id="input" rows="1"></textarea>
       <div class="bar">
-        <button class="chip" id="attach" title="附上文件或图片（也可以直接粘贴或拖进来）">📎</button>
-        <button class="chip" id="chipModel" title="模型和强度"></button>
-        <button class="chip" id="chipPerm" title="权限"></button>
+        <button class="chip" id="attach">📎</button>
+        <button class="chip" id="chipModel"></button>
+        <button class="chip" id="chipPerm"></button>
         <span class="grow"></span>
-        <button class="icon" id="stop" title="停止当前任务" style="display:none">■</button>
-        <button id="send" title="发送">↑</button>
+        <button class="icon" id="stop" style="display:none">■</button>
+        <button id="send">↑</button>
       </div>
     </div>
     <div class="hint" id="hint"></div>
@@ -369,6 +369,20 @@ textarea::placeholder { color: var(--faint); }
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const post = m => window.webkit.messageHandlers.ad.postMessage(m);
+// 界面语言：Swift 在页面开始时注入 window.AD_LANG（'zh' 或 'en'），默认中文
+const tr = (zh, en) => (window.AD_LANG === 'en' ? en : zh);
+const EN = () => window.AD_LANG === 'en';
+const pl = (n, one, many) => (n === 1 ? one : many);
+// 写在页面里的固定文字也按语言设置
+document.documentElement.lang = tr('zh-CN', 'en');
+document.querySelector('#log .empty').textContent = tr('在左边选一个会话', 'Select a session on the left');
+$('newmsg').textContent = tr('↓ 有新消息', '↓ New messages');
+const ATTACH_TITLE = tr('附上文件或图片（也可以直接粘贴或拖进来）', 'Attach files or images (you can also paste or drag them in)');
+$('attach').title = ATTACH_TITLE;
+$('chipModel').title = tr('模型和强度', 'Model and effort');
+$('chipPerm').title = tr('权限', 'Permissions');
+$('stop').title = tr('停止当前任务', 'Stop current task');
+$('send').title = tr('发送', 'Send');
 // 诊断：补发的点击记一笔（send-debug.log 里的 “web 补点击”）
 {
   const tag = el => el && el.nodeType === 1 ? (el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')) : '-';
@@ -427,38 +441,43 @@ function stepHTML(it, live) {
   if (it.kind === 'note') return `<div class="note">${md(it.text)}</div>`;
   if (it.kind === 'thinking') {
     const open = S.open.has(it.id) ? ' open' : '';
-    return `<div class="step think${open}" data-id="${esc(it.id)}"><div class="row"><span class="chev">▶</span><span class="name">思考</span><span class="sum">${esc(it.text.split('\n')[0].slice(0, 140))}</span></div>
+    return `<div class="step think${open}" data-id="${esc(it.id)}"><div class="row"><span class="chev">▶</span><span class="name">${tr('思考', 'Thinking')}</span><span class="sum">${esc(it.text.split('\n')[0].slice(0, 140))}</span></div>
       <div class="body"><div class="txt">${esc(it.text)}</div></div></div>`;
   }
   const open = S.open.has(it.id) ? ' open' : '';
   const icon = (live && !it.done) ? '<span class="spin"></span>' : '<span class="chev">▶</span>';
   return `<div class="step${open}" data-id="${esc(it.id)}"><div class="row">${icon}<span class="name">${esc(it.verb || tname(it.name))}</span><span class="sum">${esc(it.summary)}</span></div>
-    <div class="body">${it.input ? `<div class="lab">输入</div><pre><code>${esc(it.input)}</code></pre>` : ''}
-    ${it.output ? `<div class="lab">输出</div><pre><code>${esc(it.output)}</code></pre>` : (it.done ? '' : '<div class="lab">等待结果…</div>')}</div></div>`;
+    <div class="body">${it.input ? `<div class="lab">${tr('输入', 'Input')}</div><pre><code>${esc(it.input)}</code></pre>` : ''}
+    ${it.output ? `<div class="lab">${tr('输出', 'Output')}</div><pre><code>${esc(it.output)}</code></pre>` : (it.done ? '' : `<div class="lab">${tr('等待结果…', 'Waiting for result…')}</div>`)}</div></div>`;
 }
 
 // 连续的工具调用和思考归成一组，默认折叠成一行摘要（参照 Claude）；在跑的最后一组摘要显示当前步骤
 function dur(ms) {
   const s = Math.round(ms / 1000);
+  if (EN()) return s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`;
   return s < 60 ? `${s} 秒` : s < 3600 ? `${Math.floor(s / 60)} 分 ${s % 60} 秒` : `${Math.floor(s / 3600)} 小时 ${Math.floor(s % 3600 / 60)} 分`;
 }
 
 function groupSummary(g) {
   const steps = g.filter(it => it.kind !== 'note');
   const counts = new Map();
-  steps.forEach(it => { const n = it.kind === 'thinking' ? '思考' : (it.verb || tname(it.name)); counts.set(n, (counts.get(n) || 0) + 1); });
+  steps.forEach(it => { const n = it.kind === 'thinking' ? tr('思考', 'Thinking') : (it.verb || tname(it.name)); counts.set(n, (counts.get(n) || 0) + 1); });
   const parts = [...counts].map(([n, c]) => c > 1 ? `${n} ×${c}` : n);
   const t0 = Date.parse(g[0].ts), t1 = Date.parse(g[g.length - 1].ts);
-  const took = t1 - t0 >= 1000 ? `已处理 ${dur(t1 - t0)} · ` : '';
+  const took = t1 - t0 >= 1000 ? tr(`已处理 ${dur(t1 - t0)} · `, `Worked for ${dur(t1 - t0)} · `) : '';
+  if (EN()) return `${took}${steps.length} ${pl(steps.length, 'step', 'steps')}${parts.length ? ' · ' + parts.slice(0, 5).join(', ') + (parts.length > 5 ? ', and more' : '') : ''}`;
   return `${took}${steps.length} 个步骤${parts.length ? ' · ' + parts.slice(0, 5).join('、') + (parts.length > 5 ? ' 等' : '') : ''}`;
 }
 
 // Codex：一行“用时 X”（在跑时是“正在处理”，默认展开），展开后过程说明是正文，
 // 两段说明之间的工具调用合成一行“已读取文件 运行了命令”，再点开才是每一步
-const PHRASE = {
+const PHRASE = tr({
   read: ['已读取文件', '读取文件'], search: ['已搜索', '搜索'], list: ['已浏览文件', '浏览文件'],
   cmd: ['运行了命令', '运行了命令'], edit: ['已编辑文件', '编辑文件'], wait: ['已等待', '等待'],
-};
+}, {
+  read: ['Read files', 'read files'], search: ['Searched', 'searched'], list: ['Listed files', 'listed files'],
+  cmd: ['Ran commands', 'ran commands'], edit: ['Edited files', 'edited files'], wait: ['Waited', 'waited'],
+});
 function runHTML(run, live) {
   const order = [], mcp = [];
   run.forEach(it => {
@@ -466,8 +485,8 @@ function runHTML(run, live) {
     if (c === 'mcp' && it.summary && !mcp.includes(it.summary)) mcp.push(it.summary);
     if (!order.includes(c)) order.push(c);
   });
-  const label = order.map((c, i) => c === 'mcp' ? (i ? '使用 ' : '已使用 ') + (mcp.join('和') || '集成')
-    : (PHRASE[c] || [c, c])[i ? 1 : 0]).join(' ');
+  const label = order.map((c, i) => c === 'mcp' ? (i ? tr('使用 ', 'used ') : tr('已使用 ', 'Used ')) + (mcp.join(tr('和', ' and ')) || tr('集成', 'integrations'))
+    : (PHRASE[c] || [c, c])[i ? 1 : 0]).join(tr(' ', ', '));
   const id = 'r:' + run[0].id, running = live && run.some(it => !it.done);
   return `<div class="crun${S.open.has(id) ? ' open' : ''}" data-id="${esc(id)}"><div class="row">${running ? '<span class="spin"></span>' : '<span class="chev">▶</span>'}<span class="clabel">${esc(label)}</span></div>
     <div class="body">${run.map(it => stepHTML(it, live)).join('')}</div></div>`;
@@ -482,24 +501,25 @@ function codexGroupHTML(g, isLast, tookMs) {
   g.forEach(it => {
     if (it.kind === 'thinking') return;
     if (it.kind === 'note') { flush(); segs.push(`<div class="cnote">${md(it.text)}</div>`); return; }
-    if (it.kind === 'compact') { flush(); segs.push('<div class="ccompact">上下文已自动压缩</div>'); return; }
+    if (it.kind === 'compact') { flush(); segs.push(`<div class="ccompact">${tr('上下文已自动压缩', 'Context automatically compacted')}</div>`); return; }
     run.push(it);
   });
   flush();
-  const head = live ? '<span class="spin"></span><span class="gsum">正在处理…</span>'
-    : `<span class="chev">▶</span><span class="gsum">用时 ${took(tookMs || Math.max(1000, Date.parse(g[g.length - 1].ts) - Date.parse(g[0].ts)))}</span>`;
+  const head = live ? `<span class="spin"></span><span class="gsum">${tr('正在处理…', 'Working…')}</span>`
+    : `<span class="chev">▶</span><span class="gsum">${tr('用时', 'Worked for')} ${took(tookMs || Math.max(1000, Date.parse(g[g.length - 1].ts) - Date.parse(g[0].ts)))}</span>`;
   return `<div class="steps cx${open ? ' open' : ''}" data-cx="${esc(key)}" data-k="${esc(key)}"><div class="ghead">${head}</div><div class="gbody">${segs.join('')}</div></div>`;
 }
 
+const stepCount = n => tr(`${n} 个步骤`, `${n} ${pl(n, 'step', 'steps')}`);
 function groupHTML(g, isLast, tookMs) {
   if (S.session && S.session.kind === 'codex') return codexGroupHTML(g, isLast, tookMs);
   const key = g[0].id, live = isLast && S.running;
   const open = S.groups.has(key) ? ' open' : '';
   const cur = g[g.length - 1];
-  const curText = cur.kind === 'thinking' ? '思考中…' : cur.kind === 'note' ? cur.text.split('\n')[0] : `${cur.verb || tname(cur.name)}  ${cur.summary}`;
+  const curText = cur.kind === 'thinking' ? tr('思考中…', 'Thinking…') : cur.kind === 'note' ? cur.text.split('\n')[0] : `${cur.verb || tname(cur.name)}  ${cur.summary}`;
   const head = live
-    ? `<span class="spin"></span><span class="gsum">${esc(curText)}</span><span class="gcount">${g.filter(it => it.kind !== 'note').length} 个步骤</span>`
-    : `<span class="chev">▶</span><span class="gsum">${esc(S.session && S.session.kind === 'codex' && tookMs ? `用时 ${took(tookMs)}` : groupSummary(g))}</span>`;
+    ? `<span class="spin"></span><span class="gsum">${esc(curText)}</span><span class="gcount">${stepCount(g.filter(it => it.kind !== 'note').length)}</span>`
+    : `<span class="chev">▶</span><span class="gsum">${esc(S.session && S.session.kind === 'codex' && tookMs ? `${tr('用时', 'Worked for')} ${took(tookMs)}` : groupSummary(g))}</span>`;
   // 在跑的时候把最新一条过程说明露在外面，不展开也知道在做什么
   const lastNote = live ? [...g].reverse().find(it => it.kind === 'note') : null;
   const peek = lastNote ? `<div class="note peek">${md(lastNote.text)}</div>` : '';
@@ -508,19 +528,23 @@ function groupHTML(g, isLast, tookMs) {
 }
 
 // ---------- 时间：一律按北京时间显示 ----------
-const WEEK = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+const WEEK = tr(['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'], ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const BJ = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' });
 const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 function bj(d) {
   const p = Object.fromEntries(BJ.formatToParts(d).map(x => [x.type, x.value]));
-  return { y: +p.year, m: +p.month, d: +p.day, hm: `${p.hour}:${p.minute}`, wd: WD[p.weekday], key: `${p.year}-${p.month}-${p.day}` };
+  // 英文界面用 12 小时制（2:05 PM）
+  const h = +p.hour, hm = EN() ? `${h % 12 || 12}:${p.minute} ${h < 12 ? 'AM' : 'PM'}` : `${p.hour}:${p.minute}`;
+  return { y: +p.year, m: +p.month, d: +p.day, hm, wd: WD[p.weekday], key: `${p.year}-${p.month}-${p.day}` };
 }
+const monthDay = d => tr(`${d.m}月${d.d}日`, `${MON[d.m - 1]} ${d.d}`);
 function clock(ts) {
   if (!ts) return '';
   const t = new Date(ts), d = bj(t), now = new Date();
   if (d.key === bj(now).key) return d.hm;
-  if (now - t < 6 * 864e5) return WEEK[d.wd] + d.hm;
-  return `${d.m}月${d.d}日 ${d.hm}`;
+  if (now - t < 6 * 864e5) return WEEK[d.wd] + tr('', ' ') + d.hm;
+  return `${monthDay(d)} ${d.hm}`;
 }
 let lastDay = '';
 function daySep(ts) {
@@ -531,7 +555,7 @@ function daySep(ts) {
   lastDay = d.key;
   if (first) return '';
   const now = new Date();
-  return (d.key === bj(now).key ? '今天' : d.key === bj(new Date(now - 864e5)).key ? '昨天' : `${d.m}月${d.d}日`) + ' ' + d.hm;
+  return (d.key === bj(now).key ? tr('今天', 'Today') : d.key === bj(new Date(now - 864e5)).key ? tr('昨天', 'Yesterday') : monthDay(d)) + ' ' + d.hm;
 }
 function took(ms) {
   const s = Math.round(ms / 1000);
@@ -544,8 +568,8 @@ function turnEndHTML(it) {
   if (it.files && it.files.length) {
     const add = it.files.reduce((a, f) => a + f.add, 0), del = it.files.reduce((a, f) => a + f.del, 0);
     const open = S.open.has(it.id) ? ' open' : '';
-    h += `<div class="fcard${open}" data-fc="${esc(it.id)}"><div class="fh"><span>已编辑 ${it.files.length} 个文件</span><span class="add">+${add}</span><span class="del">-${del}</span></div>
-      <div class="fl">${it.files.map(f => `<div class="f" title="${esc(f.path)}"><span class="p"><span class="dir">${esc(f.path.split('/').slice(-3, -1).join('/'))}/</span>${esc(f.path.split('/').pop())}</span>${f.kind === 'add' ? '<span>新建</span>' : f.kind === 'delete' ? '<span>删除</span>' : ''}<span class="add">+${f.add}</span><span class="del">-${f.del}</span></div>`).join('')}</div></div>`;
+    h += `<div class="fcard${open}" data-fc="${esc(it.id)}"><div class="fh"><span>${tr(`已编辑 ${it.files.length} 个文件`, `Edited ${it.files.length} ${pl(it.files.length, 'file', 'files')}`)}</span><span class="add">+${add}</span><span class="del">-${del}</span></div>
+      <div class="fl">${it.files.map(f => `<div class="f" title="${esc(f.path)}"><span class="p"><span class="dir">${esc(f.path.split('/').slice(-3, -1).join('/'))}/</span>${esc(f.path.split('/').pop())}</span>${f.kind === 'add' ? `<span>${tr('新建', 'New')}</span>` : f.kind === 'delete' ? `<span>${tr('删除', 'Deleted')}</span>` : ''}<span class="add">+${f.add}</span><span class="del">-${f.del}</span></div>`).join('')}</div></div>`;
   }
   return h + `<div class="endmeta">${esc(clock(it.ts))}</div>`;
 }
@@ -626,18 +650,19 @@ function render() {
     if (it.kind === 'user') {
       const d = daySep(it.ts);
       if (d) out.push(`<div class="daysep">${esc(d)}</div>`);
-      out.push(`<div class="user" data-k="${esc(it.id)}"><div class="wrap"><div>${esc(it.text.trim())}</div><div class="ts">${esc(clock(it.ts))}</div><div class="msgops"><button class="op" data-copy="${esc(it.id)}">复制</button></div></div></div>`);
+      out.push(`<div class="user" data-k="${esc(it.id)}"><div class="wrap"><div>${esc(it.text.trim())}</div><div class="ts">${esc(clock(it.ts))}</div><div class="msgops"><button class="op" data-copy="${esc(it.id)}">${tr('复制', 'Copy')}</button></div></div></div>`);
     }
     else if (it.kind === 'turnend') out.push(turnEndHTML(it));
     // 更早的轮次只留了“用时”，步骤没有载入
-    else if (it.kind === 'worked') out.push(`<div class="steps" data-k="${esc(it.id)}"><div class="ghead" title="更早轮次的步骤没有载入"><span class="chev" style="opacity:.35">▶</span><span class="gsum">用时 ${esc(took(it.took))}</span></div></div>`);
-    else out.push(`<div class="asst" data-k="${esc(it.id)}">${md(it.text)}<div class="msgops"><button class="op" data-copy="${esc(it.id)}">复制</button></div></div>`);
+    else if (it.kind === 'worked') out.push(`<div class="steps" data-k="${esc(it.id)}"><div class="ghead" title="${tr('更早轮次的步骤没有载入', 'Steps from earlier turns aren’t loaded')}"><span class="chev" style="opacity:.35">▶</span><span class="gsum">${tr('用时', 'Worked for')} ${esc(took(it.took))}</span></div></div>`);
+    else out.push(`<div class="asst" data-k="${esc(it.id)}">${md(it.text)}<div class="msgops"><button class="op" data-copy="${esc(it.id)}">${tr('复制', 'Copy')}</button></div></div>`);
   });
   flush(true);
   const empty = S.session && S.session.draft
-    ? `<div class="empty">在 ${esc(S.session.app)} 的「${esc(S.session.project)}」目录里新建会话<br>写下第一条消息就会开始</div>`
-    : '<div class="empty">这个会话还没有可显示的内容</div>';
-  const more = S.hidden ? `<div class="more-top" data-more="1">还有 ${S.hidden} 条更早的消息，点这里显示</div>` : '';
+    ? `<div class="empty">${tr(`在 ${esc(S.session.app)} 的「${esc(S.session.project)}」目录里新建会话<br>写下第一条消息就会开始`,
+        `New ${esc(S.session.app)} session in “${esc(S.session.project)}”<br>It starts when you send your first message`)}</div>`
+    : `<div class="empty">${tr('这个会话还没有可显示的内容', 'Nothing to show in this session yet')}</div>`;
+  const more = S.hidden ? `<div class="more-top" data-more="1">${tr(`还有 ${S.hidden} 条更早的消息，点这里显示`, `${S.hidden} earlier ${pl(S.hidden, 'message', 'messages')} · Click to show`)}</div>` : '';
   // Antigravity 正在生成、还没写进记录的那段：末尾显示，带闪烁光标
   if (S.live && S.running) {
     if (S.live.thinking && !S.live.text) out.push(`<div class="livethink" data-k="live-think">${esc(S.live.thinking.slice(-600))}</div>`);
@@ -645,7 +670,7 @@ function render() {
   }
   patchBlocks($('log'), out.length ? (more ? [more, ...out] : out) : [empty]);
   for (const pre of $('log').querySelectorAll('pre')) {
-    if (!pre.querySelector('.codecopy')) pre.insertAdjacentHTML('beforeend', '<button class="codecopy">复制</button>');
+    if (!pre.querySelector('.codecopy')) pre.insertAdjacentHTML('beforeend', `<button class="codecopy">${tr('复制', 'Copy')}</button>`);
   }
   // 这次才出现的回复、说明：由上往下展开，不整块闪出来（第一次打开会话不做）
   if (S.seen) {
@@ -685,13 +710,13 @@ function updateProgress() {
   const since = lastUserTs();
   if (since) {
     const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
-    $('elapsed').textContent = `正在运行 · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-  } else $('elapsed').textContent = '正在运行';
+    $('elapsed').textContent = `${tr('正在运行', 'Running')} · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  } else $('elapsed').textContent = tr('正在运行', 'Running');
   const last = S.items[S.items.length - 1];
   let cur = '';
-  if (last && last.kind === 'tool') cur = last.done ? '正在思考…' : `${last.verb || tname(last.name)}  ${last.summary}`;
-  else if (last && (last.kind === 'user' || last.kind === 'turnend')) cur = '正在思考…';
-  else if (last && last.kind === 'thinking') cur = '思考中…';
+  if (last && last.kind === 'tool') cur = last.done ? tr('正在思考…', 'Thinking…') : `${last.verb || tname(last.name)}  ${last.summary}`;
+  else if (last && (last.kind === 'user' || last.kind === 'turnend')) cur = tr('正在思考…', 'Thinking…');
+  else if (last && last.kind === 'thinking') cur = tr('思考中…', 'Thinking…');
   else if (last && last.kind === 'note') cur = last.text.split('\n')[0];
   $('cur').textContent = cur;
 }
@@ -704,7 +729,7 @@ const tickProgress = () => {
 
 function copied(btn) {
   const old = btn.textContent;
-  btn.textContent = '已复制 ✓';
+  btn.textContent = tr('已复制 ✓', 'Copied ✓');
   setTimeout(() => { btn.textContent = old; }, 1400);
 }
 document.addEventListener('click', e => {
@@ -719,11 +744,11 @@ document.addEventListener('click', e => {
   const cc = e.target.closest('.codecopy');
   if (cc) {
     const code = cc.parentElement.querySelector('code') || cc.parentElement;
-    post({ type: 'copy', text: code.innerText.replace(/\n?复制$/, '') });
+    post({ type: 'copy', text: code.innerText.replace(/\n?(复制|Copy)$/, '') });
     copied(cc);
     return;
   }
-  if (e.target.closest('[data-more]')) { e.target.closest('[data-more]').textContent = '加载中…'; post({ type: 'more' }); return; }
+  if (e.target.closest('[data-more]')) { e.target.closest('[data-more]').textContent = tr('加载中…', 'Loading…'); post({ type: 'more' }); return; }
   const fc = e.target.closest('.fcard .fh');
   if (fc) { const c = fc.parentElement, id = c.dataset.fc; c.classList.toggle('open'); c.classList.contains('open') ? S.open.add(id) : S.open.delete(id); return; }
   const cx = e.target.closest('.steps.cx > .ghead');
@@ -754,7 +779,7 @@ function send() {
   if ((!text && !S.att.length) || S.sending) return;
   S.sending = true; input.disabled = true; autosize();
   const willQueue = S.running || S.queued.length;
-  notice(willQueue ? '' : S.session.draft ? '正在新建会话…' : '发送中…', true);
+  notice(willQueue ? '' : S.session.draft ? tr('正在新建会话…', 'Creating session…') : tr('发送中…', 'Sending…'), true);
   post({ type: 'send', text, files: S.att.map(f => f.path) });
 }
 
@@ -762,14 +787,14 @@ function send() {
 function renderQueued() {
   const q = S.queued;
   setHTML($('queued'), q.map((m, i) => `<div class="qd"><div class="b">${esc(m.text)}</div>
-    <div class="ops">${m.sending ? '<span class="spin"></span><span>发送中…</span>'
-      : `<span>${i === 0 && !S.running ? '马上发出' : `排队中 · 第 ${i + 1} 条`}</span>
-         <button class="now" data-now="${esc(m.id)}" title="不等当前任务结束，现在就发过去引导它">立即发送</button>
-         <button data-unq="${esc(m.id)}">撤回</button>`}</div></div>`).join(''));
+    <div class="ops">${m.sending ? `<span class="spin"></span><span>${tr('发送中…', 'Sending…')}</span>`
+      : `<span>${i === 0 && !S.running ? tr('马上发出', 'Sending next') : tr(`排队中 · 第 ${i + 1} 条`, `Queued · #${i + 1}`)}</span>
+         <button class="now" data-now="${esc(m.id)}" title="${tr('不等当前任务结束，现在就发过去引导它', 'Send it now to steer the current task instead of waiting for it to finish')}">${tr('立即发送', 'Send now')}</button>
+         <button data-unq="${esc(m.id)}">${tr('撤回', 'Withdraw')}</button>`}</div></div>`).join(''));
 }
 document.addEventListener('click', e => {
   const n = e.target.closest('[data-now]');
-  if (n) { notice('正在立即发送…', true); post({ type: 'sendNow', qid: n.dataset.now }); return; }
+  if (n) { notice(tr('正在立即发送…', 'Sending now…'), true); post({ type: 'sendNow', qid: n.dataset.now }); return; }
   const u = e.target.closest('[data-unq]');
   if (u) {
     // 撤回的内容放回输入框，方便改了再发
@@ -793,17 +818,18 @@ function renderPlan() {
   // 会话已经停了、清单里还有“进行中”的步骤（这一轮没收尾就结束了）：不再转圈，标成“停在这一步”
   const stalled = !S.running && p.some(x => x.status === 'in_progress');
   const st = x => x.status === 'in_progress' && stalled ? 'stalled' : x.status;
-  setHTML($('plan'), p.length ? `<div class="plan"><div class="ph"><span>任务清单${stalled ? ' · 这一轮没做完就停了' : ''}</span><span>${done}/${p.length}</span></div>
-    ${p.map(x => `<div class="pi ${esc(st(x))}"><span class="mk">${x.status === 'completed' ? '✓' : ''}</span><span>${esc(x.content)}</span>${st(x) === 'stalled' ? '<span class="pst">停在这一步</span>' : ''}</div>`).join('')}</div>` : '');
+  setHTML($('plan'), p.length ? `<div class="plan"><div class="ph"><span>${tr('任务清单', 'Plan')}${stalled ? tr(' · 这一轮没做完就停了', ' · Stopped before this turn finished') : ''}</span><span>${done}/${p.length}</span></div>
+    ${p.map(x => `<div class="pi ${esc(st(x))}"><span class="mk">${x.status === 'completed' ? '✓' : ''}</span><span>${esc(x.content)}</span>${st(x) === 'stalled' ? `<span class="pst">${tr('停在这一步', 'Stopped here')}</span>` : ''}</div>`).join('')}</div>` : '');
 }
 
 // ---------- 后台任务 ----------
 const taskIcon = st => st === 'running' ? '<span class="spin"></span>' : st === 'completed' ? '✓' : st === 'failed' ? '✗' : '■';
-const taskZh = { running: '运行中', completed: '已完成', failed: '失败', killed: '已停止', expired: '已到期' };
+const taskZh = tr({ running: '运行中', completed: '已完成', failed: '失败', killed: '已停止', expired: '已到期' },
+  { running: 'Running', completed: 'Completed', failed: 'Failed', killed: 'Stopped', expired: 'Expired' });
 function renderTasks() {
   const b = $('tasksBtn'), n = S.tasks.length, run = S.tasks.filter(t => t.status === 'running').length;
   b.style.display = n ? '' : 'none';
-  b.textContent = run ? `后台任务 ${run} 个运行中` : `后台任务 ${n}`;
+  b.textContent = run ? tr(`后台任务 ${run} 个运行中`, `Background tasks · ${run} running`) : tr(`后台任务 ${n}`, `Background tasks · ${n}`);
   b.classList.toggle('run', run > 0);
   setHTML($('tasks'), S.tasks.map(t => `<div class="task"><div class="th">${taskIcon(t.status)}<span>${esc(t.desc || t.summary || t.id)}</span><span class="st">${taskZh[t.status] || t.status || ''}</span></div>
     ${t.output ? `<pre><code>${esc(t.output)}</code></pre>` : ''}</div>`).join(''));
@@ -813,19 +839,20 @@ $('tasksBtn').addEventListener('click', () => $('tasks').classList.toggle('on'))
 // ---------- 问题卡片（Claude 的 AskUserQuestion）：选好后由 AgentDock 在原应用里逐题点选、提交 ----------
 // 每组问题选了什么按问题 id 记着：切到别的会话再切回来，已经选的、写的都还在
 const askMemo = {};
+const ASK_PICK = () => tr('每题选一项，或在“其他”里写', 'Pick an option for each question, or write in “Other”');
 function renderAsk(a) {
   const box = $('ask');
   if (!a || !a.questions || !a.questions.length) { S.ask = null; box.classList.remove('on'); box.innerHTML = ''; return; }
   if (S.ask && S.ask.id === a.id) return;   // 同一组问题：保留你已经选的
   const m = askMemo[a.id];
   S.ask = askMemo[a.id] = { id: a.id, qs: a.questions, picks: m ? m.picks : a.questions.map(() => []), other: m ? m.other : a.questions.map(() => ''), busy: false };
-  box.innerHTML = `<div class="at" style="font-weight:600;font-size:13.5px;margin-bottom:6px">❓ Claude 在等你回答</div>` +
+  box.innerHTML = `<div class="at" style="font-weight:600;font-size:13.5px;margin-bottom:6px">❓ ${tr('Claude 在等你回答', 'Claude is waiting for your answer')}</div>` +
     a.questions.map((q, i) => `<div class="aq ${q.multiSelect ? 'multi' : ''}" data-q="${i}">
-      <div class="ah">${q.header ? `<span class="chip">${esc(q.header)}</span>` : ''}<span class="qt">${esc(q.question)}</span>${q.multiSelect ? '<span class="qm">可多选</span>' : ''}</div>
+      <div class="ah">${q.header ? `<span class="chip">${esc(q.header)}</span>` : ''}<span class="qt">${esc(q.question)}</span>${q.multiSelect ? `<span class="qm">${tr('可多选', 'Multi-select')}</span>` : ''}</div>
       ${q.options.map((o, j) => `<div class="op" data-ask="${i}:${j}"><span class="mk"></span><div><div class="ol">${esc(o.label)}</div>${o.description ? `<div class="od">${esc(o.description)}</div>` : ''}</div></div>`).join('')}
-      <input class="other" data-other="${i}" placeholder="其他 / 补充说明（可以和选项一起提交）" value="${esc(S.ask.other[i])}">
+      <input class="other" data-other="${i}" placeholder="${tr('其他 / 补充说明（可以和选项一起提交）', 'Other / extra notes (can be sent along with an option)')}" value="${esc(S.ask.other[i])}">
     </div>`).join('') +
-    `<div class="af"><button id="askGo" disabled>提交</button><span id="askHint">每题选一项，或在“其他”里写</span></div>`;
+    `<div class="af"><button id="askGo" disabled>${tr('提交', 'Submit')}</button><span id="askHint">${ASK_PICK()}</span></div>`;
   box.classList.add('on');
   askUpdate();
 }
@@ -834,7 +861,7 @@ function renderAsk(a) {
 const askAnswer = (A, i) => {
   const t = A.other[i].trim();
   if (A.qs[i].multiSelect || !t || !A.picks[i].length) return { labels: t && !A.qs[i].multiSelect ? [] : A.picks[i], other: t };
-  return { labels: [], other: `${A.picks[i][0]}；${t}` };
+  return { labels: [], other: `${A.picks[i][0]}${tr('；', '; ')}${t}` };
 };
 function askUpdate() {
   const A = S.ask; if (!A) return;
@@ -846,8 +873,9 @@ function askUpdate() {
   const ok = A.qs.every((q, i) => { const x = askAnswer(A, i); return x.labels.length || x.other; });
   $('askGo').disabled = !ok || A.busy;
   const both = A.qs.some((q, i) => !q.multiSelect && A.picks[i].length && A.other[i].trim());
-  $('askHint').textContent = A.busy ? '正在原应用里提交…' : !ok ? '每题选一项，或在“其他”里写'
-    : both ? '选项和补充的话会一起提交（单选题会写成“选项；补充的话”）' : '会在原应用里替你逐题选好并提交';
+  $('askHint').textContent = A.busy ? tr('正在原应用里提交…', 'Submitting in the app…') : !ok ? ASK_PICK()
+    : both ? tr('选项和补充的话会一起提交（单选题会写成“选项；补充的话”）', 'Your option and notes are sent together (single-choice answers become “option; notes”)')
+    : tr('会在原应用里替你逐题选好并提交', 'AgentDock will pick each answer and submit it in the app for you');
 }
 document.addEventListener('click', e => {
   const op = e.target.closest('[data-ask]');
@@ -878,9 +906,9 @@ function renderSuggestion() {
   setHTML($('suggest'), show ? `<div class="sg">${g.recap ? `<div class="recap">${md(g.recap)}</div>` : ''}
     ${g.ask ? `<div class="ask">${esc(g.ask)}</div>` : ''}
     ${g.actions.length ? `<div class="acts">${g.actions.map((a, i) => `<button data-act="${i}">${esc(a)}</button>`).join('')}</div>` : ''}</div>` : '');
-  input.placeholder = show && g.actions.length ? `按 Tab 填入：${g.actions[0]}` : placeholder();
+  input.placeholder = show && g.actions.length ? tr(`按 Tab 填入：${g.actions[0]}`, `Press Tab to fill in: ${g.actions[0]}`) : placeholder();
 }
-function placeholder() { return S.session ? (S.session.draft ? '写下第一条消息…' : `回复 ${S.session.app}…`) : ''; }
+function placeholder() { return S.session ? (S.session.draft ? tr('写下第一条消息…', 'Write your first message…') : tr(`回复 ${S.session.app}…`, `Reply to ${S.session.app}…`)) : ''; }
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]');
   if (!b || !S.suggestion) return;
@@ -889,7 +917,7 @@ document.addEventListener('click', e => {
 });
 
 // ---------- 模型 / 权限下拉：选项从原应用里实时读 ----------
-function chipText(c) { return c === 'model' ? (S.session.model || '模型') : (S.session.perm || '权限'); }
+function chipText(c) { return c === 'model' ? (S.session.model || tr('模型', 'Model')) : (S.session.perm || tr('权限', 'Permissions')); }
 function renderChips() {
   const s = S.session, ok = s && s.canChip;
   $('chipModel').style.display = ok ? '' : 'none';
@@ -903,7 +931,7 @@ function openMenu(chip) {
   S.menuOpen = chip;
   $('chip' + (chip === 'model' ? 'Model' : 'Perm')).classList.add('on');
   const dd = $('dd');
-  dd.innerHTML = `<div class="wait">正在读取 ${esc(S.session.app)} 的选项…</div>`;
+  dd.innerHTML = `<div class="wait">${tr(`正在读取 ${esc(S.session.app)} 的选项…`, `Loading options from ${esc(S.session.app)}…`)}</div>`;
   dd.classList.add('on');
   post({ type: 'chip', chip });
 }
@@ -920,7 +948,7 @@ $('dd').addEventListener('click', e => {
   e.stopPropagation();
   const it = e.target.closest('[data-i]');
   if (!it) return;
-  $('dd').innerHTML = '<div class="wait">正在切换…</div>';
+  $('dd').innerHTML = `<div class="wait">${tr('正在切换…', 'Switching…')}</div>`;
   post({ type: 'choose', index: +it.dataset.i });
 });
 document.addEventListener('click', e => { if (S.menuOpen && !e.target.closest('#dd')) closeMenu(); });
@@ -938,7 +966,7 @@ $('atts').addEventListener('click', e => { const b = e.target.closest('[data-rm]
 $('attach').addEventListener('click', () => {
   const b = $('attach');
   if (b.dataset.busy) return;
-  b.dataset.busy = '1'; b.textContent = '…'; b.title = '正在打开选文件窗口…';
+  b.dataset.busy = '1'; b.textContent = '…'; b.title = tr('正在打开选文件窗口…', 'Opening file picker…');
   post({ type: 'pick' });
 });
 // 粘贴、拖进来的文件：读成数据交给 Swift 存到本地，换回路径
@@ -964,7 +992,7 @@ box.addEventListener('dragleave', () => box.classList.remove('drag'));
 box.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('drag'); takeFiles([...e.dataTransfer.files]); });
 
 // ---------- 停止、排队 ----------
-$('stop').addEventListener('click', () => { notice('正在停止…', true); post({ type: 'stop' }); });
+$('stop').addEventListener('click', () => { notice(tr('正在停止…', 'Stopping…'), true); post({ type: 'stop' }); });
 function renderButtons() {
   const s = S.session;
   $('stop').style.display = s && !s.draft && s.running ? '' : 'none';
@@ -984,9 +1012,9 @@ window.AD = {
     $('hdr').style.display = ''; $('ftr').style.display = '';
     autosize();
     $('title').textContent = s.title;
-    $('meta').textContent = [s.app, s.project, s.running ? '运行中' : '空闲'].filter(Boolean).join(' · ');
+    $('meta').textContent = [s.app, s.project, s.running ? tr('运行中', 'Running') : tr('空闲', 'Idle')].filter(Boolean).join(' · ');
     $('dot').classList.toggle('run', s.running);
-    $('openApp').textContent = s.canOpen ? `在 ${s.app} 中打开` : `切到 ${s.app}`;
+    $('openApp').textContent = s.canOpen ? tr(`在 ${s.app} 中打开`, `Open in ${s.app}`) : tr(`切到 ${s.app}`, `Open in ${s.app}`);
     $('openApp').style.display = s.draft ? 'none' : '';
     renderChips(); renderButtons();
     $('hint').textContent = s.hint;
@@ -995,7 +1023,7 @@ window.AD = {
     if (changed) {
       S.items = []; S.json = ''; S.lastId = ''; S.seen = null; S.live = null; S.gstate = {}; $('newmsg').classList.remove('on'); S.open.clear(); S.groups.clear(); S.tasks = []; S.suggestion = null; S.plan = []; renderAsk(null);
       closeMenu(true); renderTasks(); $('tasks').classList.remove('on');
-      patchBlocks($('log'), ['<div class="empty">加载中…</div>']);
+      patchBlocks($('log'), [`<div class="empty">${tr('加载中…', 'Loading…')}</div>`]);
       if (s.draft) render();
       if (!S.sending) notice('');
       $('scroll').scrollTop = 0;
@@ -1054,7 +1082,7 @@ window.AD = {
   },
   pickDone() {
     const b = $('attach');
-    delete b.dataset.busy; b.textContent = '📎'; b.title = '附上文件或图片（也可以直接粘贴或拖进来）';
+    delete b.dataset.busy; b.textContent = '📎'; b.title = ATTACH_TITLE;
   },
   approval(a) {
     const box = $('approval');
@@ -1065,7 +1093,7 @@ window.AD = {
   },
   menu(m) {
     if (!S.menuOpen) return;
-    $('dd').innerHTML = `<div class="cur">当前：${esc(m.current)}</div>` + m.items.map((l, i) => {
+    $('dd').innerHTML = `<div class="cur">${tr('当前：', 'Current: ')}${esc(m.current)}</div>` + m.items.map((l, i) => {
       // “自动 推荐 由 Claude 处理权限决策”这类：中文名后面跟说明，拆开显示；英文模型名保持完整
       const [head, ...rest] = l.split(' ');
       const split = /[\u4e00-\u9fff]/.test(head) && rest.length;

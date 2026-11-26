@@ -39,7 +39,7 @@ func agyRPC(_ method: String, _ body: [String: Any]) async throws -> [String: An
     let daemon = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".gemini/antigravity/daemon")
     let hubs = try FileManager.default.contentsOfDirectory(at: daemon, includingPropertiesForKeys: [.contentModificationDateKey])
         .filter { $0.lastPathComponent.hasPrefix("hub_") && $0.pathExtension == "json" }
-    guard let hub = hubs.max(by: { mtimeOf($0) < mtimeOf($1) }) else { throw SendError(message: "Antigravity 没在运行") }
+    guard let hub = hubs.max(by: { mtimeOf($0) < mtimeOf($1) }) else { throw SendError(message: tr("Antigravity 没在运行", "Antigravity isn’t running")) }
     let o = try JSONSerialization.jsonObject(with: Data(contentsOf: hub)) as! [String: Any]
     var req = URLRequest(url: URL(string: "http://127.0.0.1:\(o["httpPort"]!)/exa.language_server_pb.LanguageServerService/\(method)")!)
     req.httpMethod = "POST"
@@ -61,7 +61,7 @@ func runAgentapi(_ args: [String]) throws -> String {
     let hubs = try FileManager.default.contentsOfDirectory(at: daemon, includingPropertiesForKeys: [.contentModificationDateKey])
         .filter { $0.lastPathComponent.hasPrefix("hub_") && $0.pathExtension == "json" }
     // 端口会随重启变，取最新的那个
-    guard let hub = hubs.max(by: { mtimeOf($0) < mtimeOf($1) }) else { throw SendError(message: "Antigravity 没在运行") }
+    guard let hub = hubs.max(by: { mtimeOf($0) < mtimeOf($1) }) else { throw SendError(message: tr("Antigravity 没在运行", "Antigravity isn’t running")) }
     let o = try JSONSerialization.jsonObject(with: Data(contentsOf: hub)) as! [String: Any]
     let p = Process()
     p.executableURL = URL(fileURLWithPath: "/Applications/Antigravity.app/Contents/Resources/bin/language_server")
@@ -77,7 +77,7 @@ func runAgentapi(_ args: [String]) throws -> String {
     p.waitUntilExit()
     let text = String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     log("agentapi \(args.first ?? "") exit=\(p.terminationStatus) \(text.prefix(300))")
-    if p.terminationStatus != 0 { throw SendError(message: "Antigravity 拒收：\(text.prefix(200))") }
+    if p.terminationStatus != 0 { throw SendError(message: tr("Antigravity 拒收：", "Antigravity rejected it: ") + text.prefix(200)) }
     return text
 }
 
@@ -151,7 +151,7 @@ private func key(_ code: CGKeyCode, cmd: Bool = false) {
 /// dryRun：走到第 3 步后清掉自己写的内容，不发送（测试用）
 func sendViaUI(_ s: Session, _ text: String, dryRun: Bool = false) async throws {
     guard AXIsProcessTrusted() else {
-        throw SendError(message: "AgentDock 还没有“辅助功能”权限，没法替你操作 \(s.app)。到 系统设置 → 隐私与安全性 → 辅助功能 里打开 AgentDock")
+        throw SendError(message: tr("AgentDock 还没有“辅助功能”权限，没法替你操作 \(s.app)。到 系统设置 → 隐私与安全性 → 辅助功能 里打开 AgentDock", "AgentDock doesn’t have Accessibility permission yet, so it can’t operate \(s.app) for you. Turn on AgentDock in System Settings → Privacy & Security → Accessibility."))
     }
     let app = try await ensureRunning(s.appPath)
     let me = NSRunningApplication.current
@@ -181,13 +181,13 @@ func sendViaUI(_ s: Session, _ text: String, dryRun: Bool = false) async throws 
     }
     guard var (_, composer) = target else {
         log("\(s.app) \(s.rawId): 没找到标题含「\(s.title)」的窗口或输入框")
-        throw SendError(message: "在 \(s.app) 里没切到「\(s.title)」这条会话（或没找到输入框），消息没发")
+        throw SendError(message: tr("在 \(s.app) 里没切到「\(s.title)」这条会话（或没找到输入框），消息没发", "Couldn’t switch to the session “\(s.title)” in \(s.app) (or couldn’t find its input box). The message wasn’t sent."))
     }
 
     // 2. 输入框必须是空的。例外：里面正好就是这次要发的内容（上次写进去但没发出去的残留），直接接着发
     let leftover = !composerEmpty(composer) && normalized(composerValue(composer)) == normalized(text)
     guard composerEmpty(composer) || leftover else {
-        throw SendError(message: "\(s.app) 里这条会话的输入框有没发的草稿，为了不覆盖它，这次没发。清掉草稿再试")
+        throw SendError(message: tr("\(s.app) 里这条会话的输入框有没发的草稿，为了不覆盖它，这次没发。清掉草稿再试", "This session’s input box in \(s.app) has an unsent draft. To avoid overwriting it, nothing was sent. Clear the draft and try again."))
     }
 
     // 3. 写入并核对。界面刷新有延迟，1.5 秒内反复读；每次都重新找输入框，防止拿着切换前的旧元素
@@ -208,7 +208,7 @@ func sendViaUI(_ s: Session, _ text: String, dryRun: Bool = false) async throws 
             try await pasteAndSend(app, ax, s, text)
             return
         }
-        throw SendError(message: "写进 \(s.app) 输入框的内容和要发的不一致，没有发送。请到 \(s.app) 里看一眼输入框")
+        throw SendError(message: tr("写进 \(s.app) 输入框的内容和要发的不一致，没有发送。请到 \(s.app) 里看一眼输入框", "What got written into the \(s.app) input box doesn’t match the message, so it wasn’t sent. Please check the input box in \(s.app)."))
     }
     if dryRun {
         log("\(s.app) \(s.rawId): buttons near composer = \(buttonsNear(composer).map { "\(axLabel($0))|\((axGet($0, kAXEnabledAttribute) as Bool?) ?? false)" })")
@@ -239,7 +239,7 @@ func sendViaUI(_ s: Session, _ text: String, dryRun: Bool = false) async throws 
 private func pasteAndSend(_ app: NSRunningApplication, _ ax: AXUIElement, _ s: Session, _ text: String) async throws {
     app.activate()
     await sleep(0.4)
-    guard let (_, c) = findTarget(ax, s), composerEmpty(c) else { throw SendError(message: "备用发送：\(s.app) 的输入框不是空的，没发") }
+    guard let (_, c) = findTarget(ax, s), composerEmpty(c) else { throw SendError(message: tr("备用发送：\(s.app) 的输入框不是空的，没发", "Fallback send: the \(s.app) input box isn’t empty, so nothing was sent.")) }
     axSet(c, kAXFocusedAttribute, kCFBooleanTrue)
     await sleep(0.15)
     let pb = NSPasteboard.general
@@ -261,7 +261,7 @@ private func pasteAndSend(_ app: NSRunningApplication, _ ax: AXUIElement, _ s: S
         if let t = findTarget(ax, s), normalized(composerValue(t.composer)) == normalized(text) { ok = true; break }
         await sleep(0.15)
     }
-    guard ok else { throw SendError(message: "备用发送：粘贴进 \(s.app) 的内容对不上，没有回车") }
+    guard ok else { throw SendError(message: tr("备用发送：粘贴进 \(s.app) 的内容对不上，没有回车", "Fallback send: the text pasted into \(s.app) doesn’t match, so Return wasn’t pressed.")) }
     key(36) // 回车
     log("\(s.app) \(s.rawId): sent via paste fallback")
 }

@@ -29,11 +29,12 @@
   <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%7C%20Intel-universal-blue" alt="Apple Silicon and Intel">
   <a href="https://github.com/attitudechunfeng/agentdock/releases"><img src="https://img.shields.io/github/downloads/attitudechunfeng/agentdock/total?label=downloads" alt="downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license Apache-2.0"></a>
 </p>
 
-![AgentDock main window](docs/images/main.png)
+![AgentDock main window](docs/images/en/main.png)
 
-> The app's interface is currently in Simplified Chinese.
+> Available in English and Simplified Chinese. Switch on the welcome page; Chinese is the default.
 
 ## Why AgentDock
 
@@ -80,28 +81,28 @@ It only refreshes when something changes, using under 1% CPU in the background. 
 
 ## Project board
 
-![Project board](docs/images/project.png)
+![Project board](docs/images/en/project.png)
 
-Each project gets one page. At the top are the overall goal and current status, then **things that need you** (decisions waiting on you and the model's suggestions). Below that, each workstream has a card whose colored bar shows its state (in progress, blocked, waiting on you, done). Expand a card to see its verified findings (with evidence), next steps, and history. Everything is editable; after editing, click "Refresh with my changes" (按我的 N 处修改刷新) and the model reorganizes the board your way.
+Each project gets one page. At the top are the overall goal and current status, then **things that need you** (decisions waiting on you and the model's suggestions). Below that, each workstream has a card whose colored bar shows its state (in progress, blocked, waiting on you, done). Expand a card to see its verified findings (with evidence), next steps, and history. Everything is editable; after editing, click "Refresh with my N edits" and the model reorganizes the board your way.
 
-![Board overview](docs/images/board.png)
+![Board overview](docs/images/en/board.png)
 
 ## Install
 
 1. Download `AgentDock-x.x.dmg` from [Releases](https://github.com/attitudechunfeng/agentdock/releases/latest), open it, and drag AgentDock into Applications.
 2. The first time you open it, macOS says it can't verify the developer (the app isn't notarized by Apple). In Applications, **right-click AgentDock → Open**. If the dialog has no Open button, go to **System Settings → Privacy & Security** and click "Open Anyway". You only need to do this once.
-3. Follow the first-launch guide to turn on Accessibility permission. You can skip it if you only want to read sessions; replying from AgentDock needs it.
+3. Follow the first-launch guide (switch to English on its first page) to turn on Accessibility permission. You can skip it if you only want to read sessions; replying from AgentDock needs it.
 
 You need at least one of [Claude desktop](https://claude.ai/download), the Codex desktop app, or Antigravity installed and used at least once.
 
 ## Getting started
 
 - **Read and reply**: click a session on the left to see the full conversation on the right. Type in the box at the bottom and press Return to send; the model and permission menus are next to it.
-- **Turn on the board**: the grid button at the top of the sidebar opens the project board. Check "auto-update after each reply" (每轮回复结束后自动更新) to start summarizing, or first click "build the board from the last 7 days" (从最近 7 天的会话建看板).
+- **Turn on the board**: the grid button at the top of the sidebar opens the project board. Check "Auto-update after each reply" to start summarizing, or first click "Build board from the last 7 days".
 - **Manage sessions**: right-click a session to rename, fork, pin, archive, delete, or move it to a project.
 - **Closing isn't quitting**: the red button only hides the window and AgentDock keeps syncing. Click the Dock icon to bring it back; ⌘Q quits.
 
-<p align="center"><img src="docs/images/guide.png" width="520" alt="First-launch guide"></p>
+<p align="center"><img src="docs/images/en/guide.png" width="760" alt="First-launch guide"></p>
 
 ## FAQ
 
@@ -114,11 +115,11 @@ Everything stays on your Mac. AgentDock has no server and uploads nothing. Its o
 **Why does it need Accessibility permission?**
 The apps don't offer an interface for things like sending a message, so AgentDock clicks their interface for you in the background. Reading sessions doesn't need this permission.
 
-**What does "let sessions read the board" (会话自动读到看板) change?**
+**What does "Share board with sessions" change?**
 It's off by default. Turning it on adds one hook to the Claude Code and Codex settings, backing them up first. Turning it off removes the hook and leaves everything else untouched.
 
 **How do I uninstall it?**
-If you turned on "let sessions read the board", turn it off in the board first. Then drag AgentDock to the Trash. To remove its data too, delete the two folders above.
+If you turned on "Share board with sessions", turn it off in the board first. Then drag AgentDock to the Trash. To remove its data too, delete the two folders above.
 
 ## Build from source
 
@@ -127,3 +128,7 @@ If you turned on "let sessions read the board", turn it off in the board first. 
 ```
 
 This builds the app and installs it into Applications. See the [developer notes](docs/DEVELOPMENT.md) (in Chinese) for how it works, feature details, and debugging.
+
+## License
+
+AgentDock is released under the [Apache License 2.0](LICENSE). It bundles [marked](https://github.com/markedjs/marked) (MIT License) for rendering Markdown.

@@ -18,6 +18,8 @@ lipo -create -output "$APP/Contents/MacOS/AgentDock" dist/obj/AgentDock-arm64 di
 rm -rf dist/obj
 codesign --force --sign "AgentDock Local Signing" "$APP"
 cp packaging/安装说明.txt dist/stage/
+cp packaging/Install.txt dist/stage/
+cp LICENSE dist/stage/LICENSE.txt
 ln -s /Applications dist/stage/Applications
 rm -f "dist/AgentDock-$VER.dmg"
 hdiutil create -volname "AgentDock $VER" -srcfolder dist/stage -fs HFS+ -format UDZO -ov "dist/AgentDock-$VER.dmg" >/dev/null

@@ -5,6 +5,8 @@ import WebKit
 enum AppFilter: String, CaseIterable, Identifiable {
     case all = "全部", codex = "Codex", claude = "Claude", antigravity = "Antigravity"
     var id: String { rawValue }
+    /// 显示文字（rawValue 是 id，不翻译）
+    var label: String { self == .all ? tr("全部", "All") : rawValue }
     func match(_ s: Session) -> Bool {
         switch self {
         case .all: return true
@@ -18,6 +20,14 @@ enum AppFilter: String, CaseIterable, Identifiable {
 enum ListMode: String, CaseIterable, Identifiable {
     case time = "按时间", folder = "按目录", project = "按项目"
     var id: String { rawValue }
+    /// 显示文字（rawValue 是 id，不翻译）
+    var label: String {
+        switch self {
+        case .time: return tr("按时间", "By time")
+        case .folder: return tr("按目录", "By folder")
+        case .project: return tr("按项目", "By project")
+        }
+    }
 }
 
 /// 新建会话时右边显示的草稿：选好了应用和目录，等第一条消息
@@ -185,7 +195,7 @@ final class Model: ObservableObject {
 
     /// 按目录分组：目录按里面最近一次活动排序
     var folders: [(path: String, sessions: [Session])] {
-        let g = Dictionary(grouping: visible) { $0.cwd.isEmpty ? "（无目录）" : $0.cwd }
+        let g = Dictionary(grouping: visible) { $0.cwd.isEmpty ? tr("（无目录）", "(No folder)") : $0.cwd }
         return g.map { ($0.key, $0.value) }.sorted { ($0.sessions.first?.updated ?? .distantPast) > ($1.sessions.first?.updated ?? .distantPast) }
     }
 
@@ -356,11 +366,11 @@ final class Model: ObservableObject {
                     try await deliver(s, first.text)
                     unqueueSent(sid, first.id)
                     awaitingRun[sid] = Date()
-                    say("已发出「\(s.title)」排队的消息")
+                    say(tr("已发出「\(s.title)」排队的消息", "Sent the queued message in “\(s.title)”"))
                 } catch let e as SendError {
                     if let j = queue[sid]?.firstIndex(where: { $0.id == first.id }) { queue[sid]![j].sending = false }
                     awaitingRun[sid] = Date() // 失败也先缓一缓，别每 2 秒重试一次
-                    say("排队的消息没发出去：\(e.message)")
+                    say(tr("排队的消息没发出去：\(e.message)", "Couldn’t send the queued message: \(e.message)"))
                 } catch {}
             }
         }
@@ -400,11 +410,13 @@ final class Model: ObservableObject {
 
     func act(_ s: Session, _ a: SessionAction, newName: String = "") {
         let names: [SessionAction: String] = [.rename: "重命名", .fork: "分叉", .pin: "置顶", .archive: "归档", .delete: "删除"]
-        say("正在\(names[a]!)「\(s.title)」…")
+        let doing: [SessionAction: String] = [.rename: "Renaming", .fork: "Forking", .pin: "Pinning", .archive: "Archiving", .delete: "Deleting"]
+        let did: [SessionAction: String] = [.rename: "Renamed", .fork: "Forked", .pin: "Pinned", .archive: "Archived", .delete: "Deleted"]
+        say(tr("正在\(names[a]!)「\(s.title)」…", "\(doing[a]!) “\(s.title)”…"))
         Task { @MainActor in
             do {
                 try await runSessionAction(s, a, newName: newName)
-                say("已\(names[a]!)「\(s.title)」")
+                say(tr("已\(names[a]!)「\(s.title)」", "\(did[a]!) “\(s.title)”"))
                 refresh()
             } catch let e as SendError {
                 say(e.message)
@@ -432,7 +444,9 @@ final class Model: ObservableObject {
             checkTime = Date()
             let bad = checks.filter { !$0.failed.isEmpty }
             if !bad.isEmpty {
-                say("自检：" + bad.map { "\($0.app) 的「\($0.failed.joined(separator: "、"))」不可用" }.joined(separator: "；") + "。详情看首页")
+                say(isEnglish
+                    ? "Self-check: " + bad.map { "\($0.app): \($0.failed.joined(separator: ", ")) not working" }.joined(separator: "; ") + ". See the home page for details."
+                    : "自检：" + bad.map { "\($0.app) 的「\($0.failed.joined(separator: "、"))」不可用" }.joined(separator: "；") + "。详情看首页")
             }
             log("selfcheck: " + checks.map { "\($0.app) \($0.version) " + $0.items.map { "\($0.name)=\($0.ok ? "ok" : "FAIL")" }.joined(separator: " ") }.joined(separator: " | "))
         }
@@ -502,7 +516,7 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         let p = NSOpenPanel()
         p.allowsMultipleSelection = true
         p.canChooseDirectories = false
-        p.message = "选择要附上的文件或图片"
+        p.message = tr("选择要附上的文件或图片", "Choose files or images to attach")
         return p
     }()
 
@@ -511,6 +525,8 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         web = ClickThroughWebView(frame: .zero, configuration: cfg)
         super.init()
         cfg.userContentController.add(self, name: "ad")
+        // 告诉聊天页用哪种语言（页面里用 tr('中文','English') 取文案）
+        cfg.userContentController.addUserScript(WKUserScript(source: "window.AD_LANG = '\(appLang)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
         let res = Bundle.main.resourceURL!
@@ -722,17 +738,19 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         var h: Header
         if let d = draft {
             let recent = model?.sessions.first { $0.appPath == d.appPath }
-            h = Header(id: "draft-\(d.kind.rawValue)-\(d.folder)", kind: d.kind.rawValue, title: "新会话", app: d.app,
+            h = Header(id: "draft-\(d.kind.rawValue)-\(d.folder)", kind: d.kind.rawValue, title: tr("新会话", "New session"), app: d.app,
                        project: (d.folder as NSString).lastPathComponent,
-                       hint: "写下第一条消息，回车后会在 \(d.app) 里新建会话并发送。模型和权限可以先选好。",
+                       hint: tr("写下第一条消息，回车后会在 \(d.app) 里新建会话并发送。模型和权限可以先选好。",
+                                 "Write the first message. Press Return to start a new session in \(d.app) and send it. You can pick the model and permissions first."),
                        model: draftModel ?? recent?.model ?? "", perm: draftPerm ?? recent?.perm ?? "",
                        running: false, canOpen: false, canChip: true, draft: true)
         } else if let s = session {
             let hint = s.running
-                ? "任务在跑：回车先排队，结束后按顺序发出；想插话就点排队消息下的「立即发送」。Shift+回车换行。"
+                ? tr("任务在跑：回车先排队，结束后按顺序发出；想插话就点排队消息下的「立即发送」。Shift+回车换行。",
+                     "Running: Return queues your message and sends it in order when the task finishes. To cut in, click “Send now” under a queued message. Shift+Return for a new line.")
                 : s.kind == .antigravity
-                    ? "回车发送，Shift+回车换行。通过 Antigravity 的本地接口发送。"
-                    : "回车发送，Shift+回车换行。全程在后台操作 \(s.app)，不切前台。"
+                    ? tr("回车发送，Shift+回车换行。通过 Antigravity 的本地接口发送。", "Return to send, Shift+Return for a new line. Sent through Antigravity’s local API.")
+                    : tr("回车发送，Shift+回车换行。全程在后台操作 \(s.app)，不切前台。", "Return to send, Shift+Return for a new line. \(s.app) is driven in the background and never brought to the front.")
             h = Header(id: s.id, kind: s.kind.rawValue, title: s.title, app: s.app, project: s.project, hint: hint,
                        model: s.model, perm: s.perm, running: s.running, canOpen: s.link != nil,
                        canChip: true, draft: false)
@@ -861,7 +879,7 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
                 let t0 = Date()
                 try await newSession(kind: d.kind, appPath: d.appPath, folder: d.folder, text: text,
                                      prepared: draftUI, agyModel: draftAgyModelId)
-                reply("result", ["ok": true, "type": type, "notice": "已在 \(d.app) 里新建会话，稍等它出现在左边列表"])
+                reply("result", ["ok": true, "type": type, "notice": tr("已在 \(d.app) 里新建会话，稍等它出现在左边列表", "Started a new session in \(d.app). It’ll show up in the list on the left shortly.")])
                 // Antigravity 的权限预设要等会话建好后再设
                 let preset = d.kind == .antigravity ? draftPerm : nil
                 model?.selectNewest(kind: d.kind, after: t0) { s in
@@ -886,7 +904,7 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         case "sendNow":
             guard let s = session else { return }
             try await model?.sendNow(s.id, body["qid"] as! String)
-            reply("result", ["ok": true, "type": type, "notice": "已立即发送，\(s.app) 会在当前任务里处理它"])
+            reply("result", ["ok": true, "type": type, "notice": tr("已立即发送，\(s.app) 会在当前任务里处理它", "Sent now. \(s.app) will handle it in the current task.")])
         case "unqueue":
             guard let s = session else { return }
             model?.unqueue(s.id, body["qid"] as! String)
@@ -895,21 +913,21 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
             let i = body["index"] as! Int
             try await answerApproval(s, a, i)
             setApproval(nil)
-            reply("result", ["ok": true, "type": type, "notice": "已\(a.labels[i])"])
+            reply("result", ["ok": true, "type": type, "notice": tr("已\(a.labels[i])", "Chose “\(a.labels[i])”")])
         case "answer":
             // 问题卡片：在原应用里替你逐题点选并提交
             guard let s = session, let a = ask, a.id == body["id"] as? String else {
-                reply("result", ["ok": false, "type": type, "notice": "这组问题已经回答过或不在了"]); return
+                reply("result", ["ok": false, "type": type, "notice": tr("这组问题已经回答过或不在了", "These questions were already answered or are gone.")]); return
             }
             let answers = ((body["answers"] as? [[String: Any]]) ?? []).map {
                 AskAnswer(labels: $0["labels"] as? [String] ?? [], other: $0["other"] as? String ?? "")
             }
             try await answerAsk(s, a, answers)
-            reply("result", ["ok": true, "type": type, "notice": "已在 \(s.app) 里提交回答"])
+            reply("result", ["ok": true, "type": type, "notice": tr("已在 \(s.app) 里提交回答", "Submitted your answers in \(s.app).")])
         case "stop":
             guard let s = session else { return }
             try await stopSession(s)
-            reply("result", ["ok": true, "type": type, "notice": "已让 \(s.app) 停止"])
+            reply("result", ["ok": true, "type": type, "notice": tr("已让 \(s.app) 停止", "Stopped \(s.app).")])
         case "chip":
             guard let chip = Chip(rawValue: body["chip"] as! String) else { return }
             if let m = menu { await closeChip(m); menu = nil }
@@ -919,7 +937,7 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
                     agyChip = chip
                     agyChoices = chip == .model ? await agyModels() : agyPresets.map { ($0, $0) }
                     reply("menu", ["chip": chip.rawValue, "items": agyChoices.map(\.label),
-                                   "current": (chip == .model ? draftModel : draftPerm) ?? "默认"])
+                                   "current": (chip == .model ? draftModel : draftPerm) ?? tr("默认", "Default")])
                     return
                 }
                 // Claude / Codex：先在原应用里打开新会话页，再点它的下拉
@@ -979,7 +997,7 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
             }
         }
         let list = paths.map { "- \($0)" }.joined(separator: "\n")
-        return (text.isEmpty ? "" : text + "\n\n") + "附件（请直接读取这些文件）：\n" + list
+        return (text.isEmpty ? "" : text + "\n\n") + tr("附件（请直接读取这些文件）：", "Attachments (read these files directly):") + "\n" + list
     }
 
     /// 发出去 10 秒内对话记录里应当出现这条消息；没出现就提醒，可能发到了别的会话
@@ -990,7 +1008,8 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
             self.queue.async {
                 let hit = readTranscript(s).suffix(30).contains { $0.kind == "user" && $0.text.filter { !$0.isWhitespace }.contains(key) }
                 DispatchQueue.main.async {
-                    if !hit { self.js("AD.notice('10 秒内没在这条会话的记录里看到刚发的消息，可能发到了 \(s.app) 的别的会话，请去应用里确认')") }
+                    if !hit { self.js("AD.notice('" + tr("10 秒内没在这条会话的记录里看到刚发的消息，可能发到了 \(s.app) 的别的会话，请去应用里确认",
+                                                    "The message didn’t show up in this session within 10 seconds. It may have gone to another \(s.app) session. Please check in the app.") + "')") }
                 }
             }
         }

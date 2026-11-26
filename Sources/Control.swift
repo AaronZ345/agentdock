@@ -8,7 +8,7 @@ enum Chip: String { case model, perm }
 
 
 private func appAX(_ s: Session) async throws -> (NSRunningApplication, AXUIElement) {
-    guard AXIsProcessTrusted() else { throw SendError(message: "AgentDock 还没有“辅助功能”权限") }
+    guard AXIsProcessTrusted() else { throw SendError(message: tr("AgentDock 还没有“辅助功能”权限", "AgentDock doesn’t have Accessibility permission yet")) }
     let app = try await ensureRunning(s.appPath)
     let ax = AXUIElementCreateApplication(app.processIdentifier)
     enableWebAX(ax)
@@ -42,7 +42,7 @@ final class OpenMenu {
 
     /// 给页面看的选项。Codex 的“强度”滑块换成“降低 / 提高”两项
     var labels: [String] {
-        items.map { $0.label } + (effortItem != nil ? ["◀ 降低强度", "提高强度 ▶"] : [])
+        items.map { $0.label } + (effortItem != nil ? [tr("◀ 降低强度", "◀ Lower effort"), tr("提高强度 ▶", "Raise effort ▶")] : [])
     }
 
     /// 按钮上现在写的值（选完后用来刷新页面上的标签）
@@ -96,14 +96,14 @@ func chipButton(_ composer: AXUIElement, _ chip: Chip, _ kind: Kind) -> AXUIElem
 
 func openChip(_ s: Session, _ chip: Chip) async throws -> OpenMenu {
     let (app, ax) = try await appAX(s)
-    guard let (_, composer) = await navigateQuietly(ax, s) else { throw SendError(message: "没在 \(s.app) 里切到这条会话") }
+    guard let (_, composer) = await navigateQuietly(ax, s) else { throw SendError(message: tr("没在 \(s.app) 里切到这条会话", "Couldn’t switch to this session in \(s.app)")) }
     return try await openChipOn(app, ax, composer, chip, s.kind)
 }
 
 /// 在某个输入框旁的下拉框上打开菜单（已有会话、新会话页都用它）
 func openChipOn(_ app: NSRunningApplication, _ ax: AXUIElement, _ composer: AXUIElement, _ chip: Chip, _ kind: Kind) async throws -> OpenMenu {
     let s = (kind: kind, app: app.localizedName ?? "")
-    guard let b = chipButton(composer, chip, kind) else { throw SendError(message: "没在 \(s.app) 里找到这个下拉框") }
+    guard let b = chipButton(composer, chip, kind) else { throw SendError(message: tr("没在 \(s.app) 里找到这个下拉框", "Couldn’t find this dropdown in \(s.app)")) }
     let m = OpenMenu(kind, app, ax, b, chip)
     m.before = m.current
     log("chip \(chip) \(s.app): button found, current=\(m.before)")
@@ -171,17 +171,17 @@ func runSessionAction(_ s: Session, _ action: SessionAction, newName: String = "
     // 打开这条会话的菜单：Claude 是“更多选项”按钮，Codex 是侧栏条目的右键菜单
     let before = Set(menuItems(ax).map { $0.label })
     if s.kind == .claude {
-        guard let b = findButton(ax, { L.any($0.label, L.claudeMore(s.title)) }) else { throw SendError(message: "在 Claude 侧栏里没找到这条会话") }
+        guard let b = findButton(ax, { L.any($0.label, L.claudeMore(s.title)) }) else { throw SendError(message: tr("在 Claude 侧栏里没找到这条会话", "Couldn’t find this session in the Claude sidebar")) }
         AXUIElementPerformAction(b.el, kAXPressAction as CFString)
     } else if s.kind == .antigravity {
         // 侧栏里会话是个链接，同一行里有“More options”下拉
-        guard let link = axNodes(ax).first(where: { $0.role == "AXLink" && $0.label == s.title }) else { throw SendError(message: "在 Antigravity 侧栏里没找到这条会话") }
+        guard let link = axNodes(ax).first(where: { $0.role == "AXLink" && $0.label == s.title }) else { throw SendError(message: tr("在 Antigravity 侧栏里没找到这条会话", "Couldn’t find this session in the Antigravity sidebar")) }
         var row = link.el
         if let p: AXUIElement = axGet(row, kAXParentAttribute) { row = p }
-        guard let more = axNodesUnder(row).first(where: { $0.role == "AXPopUpButton" && $0.label == "More options" }) else { throw SendError(message: "没找到这条会话的菜单") }
+        guard let more = axNodesUnder(row).first(where: { $0.role == "AXPopUpButton" && $0.label == "More options" }) else { throw SendError(message: tr("没找到这条会话的菜单", "Couldn’t find this session’s menu")) }
         AXUIElementPerformAction(more.el, kAXPressAction as CFString)
     } else {
-        guard let b = findButton(ax, { $0.role == "AXButton" && $0.label == s.title }) else { throw SendError(message: "在 Codex 侧栏里没找到这条会话") }
+        guard let b = findButton(ax, { $0.role == "AXButton" && $0.label == s.title }) else { throw SendError(message: tr("在 Codex 侧栏里没找到这条会话", "Couldn’t find this session in the Codex sidebar")) }
         AXUIElementPerformAction(b.el, kAXShowMenuAction as CFString)
     }
     await sleep(0.5)
@@ -195,13 +195,13 @@ func runSessionAction(_ s: Session, _ action: SessionAction, newName: String = "
     }
     guard pressed else {
         key(app.processIdentifier, 53)
-        throw SendError(message: "\(s.app) 的菜单里没有这一项")
+        throw SendError(message: tr("\(s.app) 的菜单里没有这一项", "\(s.app)’s menu doesn’t have this option"))
     }
     switch action {
     case .rename:
         // Claude：侧栏里变成输入框；Codex：弹出“重命名聊天”对话框
         guard let f = axNodes(ax).first(where: { $0.role == "AXTextField" && (L.any($0.label, L.renameField) || $0.label == s.title || $0.label.lowercased().contains("rename") || $0.label.lowercased().contains("title")) }) else {
-            throw SendError(message: "没找到重命名输入框")
+            throw SendError(message: tr("没找到重命名输入框", "Couldn’t find the rename field"))
         }
         AXUIElementSetAttributeValue(f.el, kAXValueAttribute as CFString, newName as CFString)
         axSet(f.el, kAXFocusedAttribute, kCFBooleanTrue)
@@ -246,14 +246,14 @@ func newSession(kind: Kind, appPath: String, folder: String, text: String,
 
 /// 在原应用里点“在 某目录 中新建”，等新会话的空输入框出来
 func openNewSessionUI(kind: Kind, appPath: String, folder: String) async throws -> NewSessionUI {
-    guard AXIsProcessTrusted() else { throw SendError(message: "AgentDock 还没有“辅助功能”权限") }
+    guard AXIsProcessTrusted() else { throw SendError(message: tr("AgentDock 还没有“辅助功能”权限", "AgentDock doesn’t have Accessibility permission yet")) }
     let app = try await ensureRunning(appPath)
     let ax = AXUIElementCreateApplication(app.processIdentifier)
     enableWebAX(ax)
     let name = (folder as NSString).lastPathComponent
     let wants = kind == .claude ? L.claudeNew(name) : L.codexNew(name)
     guard let b = findButton(ax, { L.any($0.label, wants) }) ?? (kind == .codex ? findButton(ax, { L.any($0.label, L.newChat) }) : nil) else {
-        throw SendError(message: "在应用侧栏里没找到「\(wants[0])」")
+        throw SendError(message: tr("在应用侧栏里没找到「\(wants[0])」", "Couldn’t find “\(wants[0])” in the app sidebar"))
     }
     AXUIElementPerformAction(b.el, kAXPressAction as CFString)
     // 新会话还没有标题，取主窗口里最靠下、空着的输入框
@@ -267,13 +267,13 @@ func openNewSessionUI(kind: Kind, appPath: String, folder: String) async throws 
         }.first
         if let c = composer, composerEmpty(c) { break }
     }
-    guard let c = composer, composerEmpty(c) else { throw SendError(message: "新会话的输入框没准备好，消息没发") }
+    guard let c = composer, composerEmpty(c) else { throw SendError(message: tr("新会话的输入框没准备好，消息没发", "The new session’s input box wasn’t ready. The message wasn’t sent.")) }
     return (app, ax, c)
 }
 
 func sendInComposer(_ ui: NewSessionUI, _ text: String) async throws {
     let c = ui.composer
-    guard composerEmpty(c) || normalized(composerValue(c)) == normalized(text) else { throw SendError(message: "新会话的输入框里已经有内容，没发") }
+    guard composerEmpty(c) || normalized(composerValue(c)) == normalized(text) else { throw SendError(message: tr("新会话的输入框里已经有内容，没发", "The new session’s input box already has text. Nothing was sent.")) }
     AXUIElementSetAttributeValue(c, kAXValueAttribute as CFString, text as CFString)
     // 界面刷新有延迟：1.5 秒内反复核对
     var ok = false
@@ -281,8 +281,8 @@ func sendInComposer(_ ui: NewSessionUI, _ text: String) async throws {
         await sleep(0.15)
         if normalized(composerValue(c)) == normalized(text) { ok = true; break }
     }
-    guard ok else { throw SendError(message: "写入新会话输入框的内容对不上，没发") }
-    guard let send = sendButton(c) else { throw SendError(message: "新会话里没找到发送按钮") }
+    guard ok else { throw SendError(message: tr("写入新会话输入框的内容对不上，没发", "The text written into the new session’s input box doesn’t match. Nothing was sent.")) }
+    guard let send = sendButton(c) else { throw SendError(message: tr("新会话里没找到发送按钮", "Couldn’t find the send button in the new session")) }
     AXUIElementPerformAction(send, kAXPressAction as CFString)
 }
 
@@ -321,8 +321,8 @@ func stopSession(_ s: Session) async throws {
         return
     }
     let (_, ax) = try await appAX(s)
-    guard let (_, c) = await navigateQuietly(ax, s) else { throw SendError(message: "没在 \(s.app) 里切到这条会话") }
-    guard let b = buttonsNear(c).first(where: { L.any(axLabel($0), L.stop) }) else { throw SendError(message: "\(s.app) 里这条会话没有在跑") }
+    guard let (_, c) = await navigateQuietly(ax, s) else { throw SendError(message: tr("没在 \(s.app) 里切到这条会话", "Couldn’t switch to this session in \(s.app)")) }
+    guard let b = buttonsNear(c).first(where: { L.any(axLabel($0), L.stop) }) else { throw SendError(message: tr("\(s.app) 里这条会话没有在跑", "This session isn’t running in \(s.app)")) }
     AXUIElementPerformAction(b, kAXPressAction as CFString)
     log("stop \(s.app) \(s.title)")
 }
@@ -345,7 +345,8 @@ struct UsageApp: Identifiable, Hashable {
 private let bjFormatter: DateFormatter = {
     let f = DateFormatter()
     f.timeZone = TimeZone(identifier: "Asia/Shanghai")
-    f.dateFormat = "M月d日 HH:mm"
+    f.locale = Locale(identifier: "en_US_POSIX")
+    f.dateFormat = tr("M月d日 HH:mm", "MMM d HH:mm")
     return f
 }()
 
@@ -385,8 +386,8 @@ func readUsage() async -> [UsageApp] {
                 .replacingOccurrences(of: "Claude and GPT models", with: "Claude/GPT")
             for bk in (g["buckets"] as? [[String: Any]]) ?? [] {
                 guard let f = bk["remainingFraction"] as? Double else { continue }
-                let w = bk["window"] as? String == "weekly" ? "每周" : bk["window"] as? String == "5h" ? "5 小时" : (bk["window"] as? String ?? "")
-                let reset = (bk["resetTime"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }.map { bjFormatter.string(from: $0) + " 重置" } ?? ""
+                let w = bk["window"] as? String == "weekly" ? tr("每周", "weekly") : bk["window"] as? String == "5h" ? tr("5 小时", "5-hour") : (bk["window"] as? String ?? "")
+                let reset = (bk["resetTime"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }.map { tr(bjFormatter.string(from: $0) + " 重置", "Resets " + bjFormatter.string(from: $0)) } ?? ""
                 items.append(UsageItem(label: "\(gname) \(w)", used: 1 - f, note: reset))
             }
         }
@@ -404,9 +405,9 @@ func readUsage() async -> [UsageApp] {
                 let l = n.label
                 if let m = l.firstMatch(of: #/(\d+)%/#), l.contains("限额") || l.lowercased().contains("limit") {
                     let weekly = l.lowercased().contains("weekly") || l.contains("每周")
-                    items.append(UsageItem(label: weekly ? "每周" : "5 小时", used: 1 - (Double(m.1) ?? 0) / 100, note: ""))
+                    items.append(UsageItem(label: weekly ? tr("每周", "Weekly") : tr("5 小时", "5-hour"), used: 1 - (Double(m.1) ?? 0) / 100, note: ""))
                 } else if let m = l.firstMatch(of: #/([\d,]+)/#), l.hasPrefix("额度") || l.hasPrefix("Credits") {
-                    items.append(UsageItem(label: "额度", used: nil, note: String(m.1)))
+                    items.append(UsageItem(label: tr("额度", "Credits"), used: nil, note: String(m.1)))
                 }
             }
             key(app.processIdentifier, 53)
@@ -453,7 +454,7 @@ func findApproval(_ s: Session, navigate: Bool) async -> Approval? {
     // 同意类和拒绝类按钮都在，才算一张批准卡片（防止把别的按钮误当成批准）
     guard buttons.contains(where: { L.item($0.1, L.approve) }), buttons.contains(where: { L.item($0.1, L.deny) }) else { return nil }
     let detail = texts.suffix(6).joined(separator: " ").prefix(300)
-    return Approval(title: "\(s.app) 在等你批准", detail: String(detail), labels: buttons.map(\.1), buttons: buttons.map(\.0))
+    return Approval(title: tr("\(s.app) 在等你批准", "\(s.app) is waiting for your approval"), detail: String(detail), labels: buttons.map(\.1), buttons: buttons.map(\.0))
 }
 
 /// Antigravity：最近几步里状态是 WAITING、带批准请求的那一步
@@ -468,8 +469,8 @@ func agyApproval(_ s: Session, offset: Int) async -> Approval? {
         let target = ((req["permission"] as? [String: Any])?["resource"] as? [String: Any])?["target"] as? String
             ?? (req["filePermission"] as? [String: Any])?["absolutePathUri"] as? String ?? ""
         let what = ((st["type"] as? String) ?? "").replacingOccurrences(of: "CORTEX_STEP_TYPE_", with: "").lowercased()
-        return Approval(title: "Antigravity 在等你批准", detail: [what, target].filter { !$0.isEmpty }.joined(separator: "：").prefix(300).description,
-                        labels: ["批准（这一次）", "拒绝"], agy: (traj, step, kind))
+        return Approval(title: tr("Antigravity 在等你批准", "Antigravity is waiting for your approval"), detail: [what, target].filter { !$0.isEmpty }.joined(separator: tr("：", ": ")).prefix(300).description,
+                        labels: [tr("批准（这一次）", "Approve (once)"), tr("拒绝", "Deny")], agy: (traj, step, kind))
     }
     return nil
 }
@@ -517,13 +518,13 @@ func selfCheck(_ sessions: [Session]) async -> [AppCheck] {
         var items: [CheckItem] = []
         let mine = sessions.filter { $0.appPath == a.path }
         // 记录格式：最近一条会话能解析出内容
-        if let s = mine.first(where: { $0.transcript != nil }) { items.append(CheckItem(name: "记录格式", ok: !readDetail(s).items.isEmpty)) }
+        if let s = mine.first(where: { $0.transcript != nil }) { items.append(CheckItem(name: tr("记录格式", "Transcript format"), ok: !readDetail(s).items.isEmpty)) }
         if AXIsProcessTrusted() {
             let ax = AXUIElementCreateApplication(app.processIdentifier)
             enableWebAX(ax)
             let wins = ((axGet(ax, kAXWindowsAttribute) as [AXUIElement]?) ?? []).filter { (axGet($0, kAXSubroleAttribute) as String?) == kAXStandardWindowSubrole }
             guard !wins.isEmpty else {
-                items.append(CheckItem(name: "窗口没开，界面检查跳过", ok: true))
+                items.append(CheckItem(name: tr("窗口没开，界面检查跳过", "No window open, UI checks skipped"), ok: true))
                 out.append(AppCheck(app: a.name, version: appVersion(a.path), items: items))
                 continue
             }
@@ -536,10 +537,10 @@ func selfCheck(_ sessions: [Session]) async -> [AppCheck] {
                 if composer != nil { break }
                 await sleep(0.25)
             }
-            items.append(CheckItem(name: "输入框", ok: composer != nil))
+            items.append(CheckItem(name: tr("输入框", "Input box"), ok: composer != nil))
             if let c = composer {
-                items.append(CheckItem(name: "模型下拉", ok: chipButton(c, .model, a.kind) != nil))
-                items.append(CheckItem(name: "权限下拉", ok: chipButton(c, .perm, a.kind) != nil))
+                items.append(CheckItem(name: tr("模型下拉", "Model menu"), ok: chipButton(c, .model, a.kind) != nil))
+                items.append(CheckItem(name: tr("权限下拉", "Permission menu"), ok: chipButton(c, .perm, a.kind) != nil))
             }
             let titles = Set(mine.map(\.title))
             let sidebar: Bool
@@ -548,17 +549,17 @@ func selfCheck(_ sessions: [Session]) async -> [AppCheck] {
             case .codex: sidebar = nodes.contains { $0.role == "AXButton" && titles.contains($0.label) }
             case .antigravity: sidebar = nodes.contains { $0.role == "AXLink" && titles.contains($0.label) }
             }
-            items.append(CheckItem(name: "侧栏会话", ok: sidebar))
+            items.append(CheckItem(name: tr("侧栏会话", "Sidebar sessions"), ok: sidebar))
             switch a.kind {
-            case .claude: items.append(CheckItem(name: "用量", ok: nodes.contains { $0.role == "AXPopUpButton" && L.anyPrefix($0.label, L.claudeUsagePrefix) }))
-            case .codex: items.append(CheckItem(name: "用量", ok: nodes.contains { $0.role == "AXPopUpButton" && L.any($0.label, L.codexUsage) }))
+            case .claude: items.append(CheckItem(name: tr("用量", "Usage"), ok: nodes.contains { $0.role == "AXPopUpButton" && L.anyPrefix($0.label, L.claudeUsagePrefix) }))
+            case .codex: items.append(CheckItem(name: tr("用量", "Usage"), ok: nodes.contains { $0.role == "AXPopUpButton" && L.any($0.label, L.codexUsage) }))
             case .antigravity: break
             }
         } else {
-            items.append(CheckItem(name: "辅助功能权限", ok: false))
+            items.append(CheckItem(name: tr("辅助功能权限", "Accessibility permission"), ok: false))
         }
         if a.kind == .antigravity {
-            items.append(CheckItem(name: "本地接口", ok: (try? await agyRPC("GetPermissionSettings", [:])) != nil))
+            items.append(CheckItem(name: tr("本地接口", "Local API"), ok: (try? await agyRPC("GetPermissionSettings", [:])) != nil))
         }
         out.append(AppCheck(app: a.name, version: appVersion(a.path), items: items))
     }
@@ -624,11 +625,11 @@ private func press(_ e: AXUIElement) { AXUIElementPerformAction(e, kAXPressActio
 private func isChecked(_ e: AXUIElement) -> Bool { ((axGet(e, kAXValueAttribute) as NSNumber?)?.intValue ?? 0) != 0 }
 
 func answerAsk(_ s: Session, _ ask: PendingAsk, _ answers: [AskAnswer]) async throws {
-    guard AXIsProcessTrusted() else { throw SendError(message: "AgentDock 还没有辅助功能权限") }
-    guard let app = runningApp(s.appPath) else { throw SendError(message: "\(s.app) 没在运行") }
+    guard AXIsProcessTrusted() else { throw SendError(message: tr("AgentDock 还没有辅助功能权限", "AgentDock doesn’t have Accessibility permission yet")) }
+    guard let app = runningApp(s.appPath) else { throw SendError(message: tr("\(s.app) 没在运行", "\(s.app) isn’t running")) }
     let ax = AXUIElementCreateApplication(app.processIdentifier)
     enableWebAX(ax)
-    guard let (win, _) = await navigateQuietly(ax, s) else { throw SendError(message: "在 \(s.app) 里没找到这条会话") }
+    guard let (win, _) = await navigateQuietly(ax, s) else { throw SendError(message: tr("在 \(s.app) 里没找到这条会话", "Couldn’t find this session in \(s.app)")) }
     for (i, q) in ask.questions.enumerated() where i < answers.count {
         let a = answers[i]
         // 找到这道题：卡片停在别的题上就翻过去
@@ -643,12 +644,12 @@ func answerAsk(_ s: Session, _ ask: PendingAsk, _ answers: [AskAnswer]) async th
             press(b.0)
             await sleep(0.3)
         }
-        guard let card else { throw SendError(message: "在 \(s.app) 里没找到第 \(i + 1) 题的卡片") }
+        guard let card else { throw SendError(message: tr("在 \(s.app) 里没找到第 \(i + 1) 题的卡片", "Couldn’t find the card for question \(i + 1) in \(s.app)")) }
         // 先等卡片稳定一下（刚出来时原应用会把单选的第一项设成默认勾选）
         await sleep(0.3)
         func wanted(_ l: String) -> Bool { a.labels.contains { l == $0 || l.hasPrefix($0 + " ") } }
         for l in a.labels where !cardParts(card).checks.contains(where: { $0.1 == l || $0.1.hasPrefix(l + " ") }) {
-            throw SendError(message: "第 \(i + 1) 题里没找到选项“\(l)”")
+            throw SendError(message: tr("第 \(i + 1) 题里没找到选项“\(l)”", "Couldn’t find the option “\(l)” in question \(i + 1)"))
         }
         // 点选，再核对：勾上的正好是要的那些、隔一会儿再看还是这样才算数；对不上就不提交。
         // 每次都重新找卡片（原应用重绘后旧的界面元素会失效，读出来是空的，不能当成“没勾”）
@@ -679,7 +680,7 @@ func answerAsk(_ s: Session, _ ask: PendingAsk, _ answers: [AskAnswer]) async th
         guard ok else {
             let state = (current() ?? []).map { "\($0.1.split(separator: " ").first ?? "")\(isChecked($0.0) ? "✓" : "")" }.joined(separator: " ")
             log("ask q\(i + 1) mismatch: \(state)")
-            throw SendError(message: "第 \(i + 1) 题没能选成你要的（现在是：\(state)），没有提交，请到 \(s.app) 里看一下")
+            throw SendError(message: tr("第 \(i + 1) 题没能选成你要的（现在是：\(state)），没有提交，请到 \(s.app) 里看一下", "Question \(i + 1) didn’t end up with your choice (now: \(state)). Nothing was submitted. Please check in \(s.app)."))
         }
         if !a.other.isEmpty {
             var field: AXUIElement?
@@ -687,18 +688,18 @@ func answerAsk(_ s: Session, _ ask: PendingAsk, _ answers: [AskAnswer]) async th
                 if let c = askCard(win), let f = cardParts(c).fields.first { field = f; break }
                 await sleep(0.25)
             }
-            guard let field else { throw SendError(message: "第 \(i + 1) 题点了“其他”但没出现输入框") }
+            guard let field else { throw SendError(message: tr("第 \(i + 1) 题点了“其他”但没出现输入框", "Question \(i + 1): clicked “Other” but no text field appeared")) }
             AXUIElementSetAttributeValue(field, kAXFocusedAttribute as CFString, kCFBooleanTrue)
             AXUIElementSetAttributeValue(field, kAXValueAttribute as CFString, a.other as CFString)
             await sleep(0.3)
             if normalized((axGet(field, kAXValueAttribute) as String?) ?? "") != normalized(a.other) {
-                throw SendError(message: "第 \(i + 1) 题“其他”的文字没写进去")
+                throw SendError(message: tr("第 \(i + 1) 题“其他”的文字没写进去", "Question \(i + 1): the “Other” text didn’t get written in"))
             }
         }
         // 单选点完可能自己跳到下一题；还停在这题才按“下一步/提交”
         if let c = askCard(win), sameQuestion(axGet(c, kAXDescriptionAttribute) ?? "", q.question) {
             guard let next = cardParts(c).buttons.first(where: { L.any($0.1, L.askSubmit) }) else {
-                throw SendError(message: "第 \(i + 1) 题没找到“下一步”按钮")
+                throw SendError(message: tr("第 \(i + 1) 题没找到“下一步”按钮", "Question \(i + 1): couldn’t find the “Next” button"))
             }
             press(next.0)
             await sleep(0.4)
@@ -718,5 +719,5 @@ func answerAsk(_ s: Session, _ ask: PendingAsk, _ answers: [AskAnswer]) async th
         guard round == 0, let b = axNodes(ax).first(where: { $0.role == kAXButtonRole && L.any($0.label, ["提交", "Submit"]) }) else { break }
         press(b.el)
     }
-    throw SendError(message: "回答已经填好，但 \(s.app) 还没收到，请到原应用里看一下")
+    throw SendError(message: tr("回答已经填好，但 \(s.app) 还没收到，请到原应用里看一下", "The answers are filled in, but \(s.app) hasn’t received them yet. Please check in the original app."))
 }

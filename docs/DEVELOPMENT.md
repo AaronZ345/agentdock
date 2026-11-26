@@ -29,6 +29,13 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 
 签名用的是钥匙串里的本地自签名证书「AgentDock Local Signing」，签名要求固定。所以在「系统设置 → 隐私与安全性 → 辅助功能」里授权一次后，重新编译也不用再授权。
 
+## 界面语言
+
+- 中文（默认）和英文两套。界面文案统一写成 `tr("中文", "English")`（`Sources/Lang.swift`），聊天页里同样用 `tr('中文','English')`，语言由 Swift 在页面加载前注入 `window.AD_LANG`。
+- 切换在首页右上角和引导第一页，存在 `appLanguage`，切换后自动重启生效。测试或截图可以临时用 `--lang en` / `--lang zh` 启动，不改保存的设置。
+- 不翻译的：匹配原应用界面的文字（`Labels.swift`）、写进数据里的内部取值（大类状态“进行中”、结论“有效”、建议类型“新大类”等，显示时用 `stateLabel()` 转换）、日志、给汇总模型的中文提示词（英文模式下在提示词末尾追加“用英文写”的要求）。
+- 演示截图两种语言各一套：`--lang zh --demo-shots docs/images`、`--lang en --demo-shots docs/images/en`。
+
 ## 发给别人用
 
 - 打包：`./package.sh`，生成 `dist/AgentDock-<版本>.dmg`（Apple 芯片和 Intel 通用，约 3.6 MB），里面有 AgentDock.app、“应用程序”快捷方式和 `安装说明.txt`（源文件在 `packaging/`）。版本号改 `Info.plist` 的 `CFBundleShortVersionString`。

@@ -42,7 +42,7 @@ let extraClaudes: [ExtraClaude] = ((localConfig["claudeExtra"] as? [[String: Any
 let configClaudeCLI: [String]? = (localConfig["claudeCLI"] as? [String]).map { $0.enumerated().map { $0.offset == 0 ? expandHome($0.element) : $0.element } }
 
 /// 官方 Claude 桌面版的显示名：额外实例也叫“Claude”时加个后缀区分（名字要唯一）
-let claudeStdLabel = extraClaudes.contains { $0.label == "Claude" } ? "Claude（官方）" : "Claude"
+let claudeStdLabel = extraClaudes.contains { $0.label == "Claude" } ? tr("Claude（官方）", "Claude (official)") : "Claude"
 
 /// 所有 Claude 桌面应用：额外实例在前，官方版在后
 let claudeApps: [(label: String, path: String)] = extraClaudes.map { ($0.label, $0.appPath) } + [(claudeStdLabel, claudeAppPath)]
@@ -95,8 +95,13 @@ func modelName(_ id: String) -> String {
     return id
 }
 
-private let effortZh = ["minimal": "最低", "low": "低", "medium": "中", "high": "高", "xhigh": "超高", "max": "最高"]
-private let claudePerm = ["default": "手动", "acceptEdits": "接受编辑", "plan": "计划", "bypassPermissions": "跳过权限确认", "auto": "自动"]
+/// 只用于显示，不和原应用菜单比对
+private let effortZh = isEnglish
+    ? ["minimal": "minimal", "low": "low", "medium": "medium", "high": "high", "xhigh": "extra high", "max": "max"]
+    : ["minimal": "最低", "low": "低", "medium": "中", "high": "高", "xhigh": "超高", "max": "最高"]
+private let claudePerm = isEnglish
+    ? ["default": "Ask before edits", "acceptEdits": "Accept edits", "plan": "Plan", "bypassPermissions": "Bypass permissions", "auto": "Auto"]
+    : ["default": "手动", "acceptEdits": "接受编辑", "plan": "计划", "bypassPermissions": "跳过权限确认", "auto": "自动"]
 
 let listWindow: TimeInterval = 365 * 24 * 3600
 
@@ -258,7 +263,7 @@ func scanCodex(now: Date) -> [Session] {
             let effort = (ctx?["effort"] as? String).map { effortZh[$0] ?? $0 } ?? ""
             let sandbox = ((ctx?["sandbox_policy"] as? [String: Any])?["type"] as? String) ?? ""
             let approval = ctx?["approval_policy"] as? String ?? ""
-            let perm = sandbox == "danger-full-access" ? "完全访问" : approval == "on-request" ? "请求批准" : approval
+            let perm = sandbox == "danger-full-access" ? tr("完全访问", "Full access") : approval == "on-request" ? tr("请求批准", "Ask for approval") : approval
             return Session(id: "codex-" + id, kind: .codex, rawId: id, transcript: f, app: "Codex", title: "",
                            project: (cwd as NSString).lastPathComponent,
                            running: running ?? true, updated: edge ?? m,
@@ -268,7 +273,7 @@ func scanCodex(now: Date) -> [Session] {
         }
         guard var s = base else { return nil }
         // 标题会被改名，不进缓存
-        s.title = clean(titles[id] ?? "未命名 " + id.prefix(8))
+        s.title = clean(titles[id] ?? tr("未命名 ", "Untitled ") + id.prefix(8))
         s.running = s.running && now.timeIntervalSince(m) < staleAfter
         s.nativeUnread = unread[id] ?? false
         return s
@@ -377,9 +382,9 @@ func scanClaude(now: Date) -> [Session] {
                 let focused = (o["lastFocusedAt"] as? Double) ?? 0
                 claudeTimes[sid] = (focused, (o["lastTurnEdgeAt"] as? Double) ?? (o["lastActivityAt"] as? Double) ?? 0)
                 let cwd = o["cwd"] as? String ?? ""
-                let effort = (o["effort"] as? String).map { (effortZh[$0] ?? $0) + "强度" } ?? ""
+                let effort = (o["effort"] as? String).map { tr((effortZh[$0] ?? $0) + "强度", (effortZh[$0] ?? $0) + " effort") } ?? ""
                 return Session(id: "claude-" + sid, kind: .claude, rawId: sid, transcript: transcript, app: inst.label,
-                               title: clean(o["title"] as? String ?? "未命名"),
+                               title: clean(o["title"] as? String ?? tr("未命名", "Untitled")),
                                project: (cwd as NSString).lastPathComponent,
                                running: false, updated: last,
                                link: URL(string: "claude://claude.ai/epitaxy/" + sid), appPath: inst.appPath,
@@ -481,7 +486,7 @@ func scanAntigravity() -> [Session] {
         let ws = (try? JSONSerialization.jsonObject(with: Data(text(5).utf8)) as? [String])?.first
         out.append(Session(id: "agy-" + cid, kind: .antigravity, rawId: cid,
                            transcript: home.appendingPathComponent(".gemini/antigravity/brain/\(cid)/.system_generated/logs/transcript_full.jsonl"),
-                           app: "Antigravity", title: clean(text(1).isEmpty ? "未命名" : text(1)),
+                           app: "Antigravity", title: clean(text(1).isEmpty ? tr("未命名", "Untitled") : text(1)),
                            project: ws.flatMap { URL(string: $0)?.lastPathComponent } ?? "",
                            running: text(2) != "CASCADE_RUN_STATUS_IDLE" || sqlite3_column_int(st, 3) != 0,
                            updated: Date(timeIntervalSince1970: Double(sqlite3_column_int64(st, 4))),

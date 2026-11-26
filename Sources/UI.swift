@@ -19,10 +19,16 @@ private func dayLabel(_ d: Date) -> String {
     return "更早"
 }
 
+/// dayLabel 的取值是分组的 key，这里只换显示文字
+private func dayTitle(_ day: String) -> String {
+    ["今天": tr("今天", "Today"), "昨天": tr("昨天", "Yesterday"), "最近 7 天": tr("最近 7 天", "Previous 7 days"), "更早": tr("更早", "Older")][day] ?? day
+}
+
 private func timeLabel(_ d: Date) -> String {
     let f = DateFormatter()
     f.timeZone = beijing
-    f.dateFormat = bjCal.isDateInToday(d) ? "HH:mm" : "M月d日"
+    if isEnglish { f.locale = Locale(identifier: "en_US_POSIX") }
+    f.dateFormat = bjCal.isDateInToday(d) ? "HH:mm" : tr("M月d日", "MMM d")
     return f.string(from: d)
 }
 
@@ -44,11 +50,11 @@ struct SessionRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     if s.waiting {
-                        Text(s.asking ? "待回答" : "待批准").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.white)
+                        Text(s.asking ? tr("待回答", "Needs answer") : tr("待批准", "Needs approval")).font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.white)
                             .padding(.horizontal, 5).padding(.vertical, 1)
                             .background(Capsule().fill(Color.red.opacity(0.85)))
                     } else if unread {
-                        Text("未读").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.white)
+                        Text(tr("未读", "Unread")).font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.white)
                             .padding(.horizontal, 5).padding(.vertical, 1)
                             .background(Capsule().fill(claudeOrange))
                     }
@@ -63,7 +69,7 @@ struct SessionRow: View {
             } else if s.bg > 0 {
                 // 主任务空闲、但还有后台任务在跑
                 Label("\(s.bg)", systemImage: "gearshape.2").font(.caption2).foregroundStyle(.secondary)
-                    .help("\(s.bg) 个后台任务在跑")
+                    .help(tr("\(s.bg) 个后台任务在跑", s.bg == 1 ? "1 background task running" : "\(s.bg) background tasks running"))
             } else {
                 Text(timeLabel(s.updated)).font(.caption2).foregroundStyle(.tertiary).padding(.top, 2)
             }
@@ -107,25 +113,25 @@ struct UsageView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.right").font(.system(size: 9, weight: .semibold))
                             .rotationEffect(.degrees(expanded ? 90 : 0))
-                        Text("用量").font(.caption.weight(.semibold))
+                        Text(tr("用量", "Usage")).font(.caption.weight(.semibold))
                     }
                     .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
                 Spacer()
                 if let t = model.usageTime {
-                    Text("更新于 " + hhmm(t)).font(.caption2).foregroundStyle(.tertiary)
+                    Text(tr("更新于 ", "Updated ") + hhmm(t)).font(.caption2).foregroundStyle(.tertiary)
                 }
                 if model.usageLoading {
                     ProgressView().controlSize(.mini)
                 } else {
                     Button { model.refreshUsage() } label: { Image(systemName: "arrow.clockwise").font(.caption) }
-                        .buttonStyle(.borderless).help("刷新用量")
+                        .buttonStyle(.borderless).help(tr("刷新用量", "Refresh usage"))
                 }
             }
             if expanded {
                 if model.usage.isEmpty && !model.usageLoading {
-                    Text("还没读到，点右边刷新").font(.caption2).foregroundStyle(.tertiary)
+                    Text(tr("还没读到，点右边刷新", "Nothing yet. Click refresh on the right.")).font(.caption2).foregroundStyle(.tertiary)
                 }
                 ForEach(model.usage) { a in
                     VStack(alignment: .leading, spacing: 5) {
@@ -211,7 +217,7 @@ struct RootView: View {
         if editingId == s.id {
             HStack(spacing: 8) {
                 Image(nsImage: appIcon(s.appPath)).resizable().frame(width: 18, height: 18)
-                TextField("会话名", text: $editText)
+                TextField(tr("会话名", "Session name"), text: $editText)
                     .textFieldStyle(.roundedBorder)
                     .focused($editFocus)
                     .onSubmit { commitRename(s) }
@@ -222,10 +228,10 @@ struct RootView: View {
             .onAppear { DispatchQueue.main.async { editFocus = true } }
         } else if deletingId == s.id {
             HStack(spacing: 6) {
-                Text("删除「\(s.title)」？删掉找不回来").font(.caption).lineLimit(2)
+                Text(tr("删除「\(s.title)」？删掉找不回来", "Delete “\(s.title)”? This can’t be undone.")).font(.caption).lineLimit(2)
                 Spacer(minLength: 4)
-                Button("删除", role: .destructive) { deletingId = nil; model.act(s, .delete) }.controlSize(.small)
-                Button("取消") { deletingId = nil }.controlSize(.small)
+                Button(tr("删除", "Delete"), role: .destructive) { deletingId = nil; model.act(s, .delete) }.controlSize(.small)
+                Button(tr("取消", "Cancel")) { deletingId = nil }.controlSize(.small)
             }
             .padding(.vertical, 3)
         } else {
@@ -251,16 +257,16 @@ struct RootView: View {
         VStack(spacing: 6) {
             HStack(spacing: 6) {
                 Picker("", selection: $model.filter) {
-                    ForEach(AppFilter.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(AppFilter.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
                 Button { model.board = "" } label: { Image(systemName: "square.grid.2x2") }
-                    .buttonStyle(.borderless).help("项目看板")
+                    .buttonStyle(.borderless).help(tr("项目看板", "Project board"))
                 newMenu(folder: nil)
             }
             .padding(.horizontal, 10)
             Picker("", selection: $model.mode) {
-                ForEach(ListMode.allCases) { Text($0.rawValue).tag($0) }
+                ForEach(ListMode.allCases) { Text($0.label).tag($0) }
             }
             .pickerStyle(.segmented).labelsHidden().padding(.horizontal, 10)
 
@@ -277,7 +283,7 @@ struct RootView: View {
             footer
         }
         .background(sidebarBG)
-        .searchable(text: $model.query, placement: .sidebar, prompt: "搜索标题和正文")
+        .searchable(text: $model.query, placement: .sidebar, prompt: tr("搜索标题和正文", "Search titles and messages"))
     }
 
     /// 分组互斥：每条会话只出现在一个组。未读（有新输出、你还没看）→ 运行中（在跑或有后台任务）→ 按时间。
@@ -293,14 +299,14 @@ struct RootView: View {
             Section {
                 ForEach(unread) { row($0, showProject: true) }
             } header: {
-                HStack { Text("未读"); Text("\(unread.count)").foregroundStyle(.tertiary) }
+                HStack { Text(tr("未读", "Unread")); Text("\(unread.count)").foregroundStyle(.tertiary) }
             }
         }
         if !active.isEmpty {
             Section {
                 ForEach(active) { row($0, showProject: true) }
             } header: {
-                HStack { Text("运行中"); Text("\(active.count)").foregroundStyle(.tertiary) }
+                HStack { Text(tr("运行中", "Running")); Text("\(active.count)").foregroundStyle(.tertiary) }
             }
         }
         ForEach(["今天", "昨天", "最近 7 天", "更早"], id: \.self) { day in
@@ -315,7 +321,7 @@ struct RootView: View {
                                             })) {
                     ForEach(rows) { row($0, showProject: true) }
                 } header: {
-                    HStack { Text(day); Text("\(rows.count)").foregroundStyle(.tertiary) }
+                    HStack { Text(dayTitle(day)); Text("\(rows.count)").foregroundStyle(.tertiary) }
                 }
             }
         }
@@ -344,9 +350,9 @@ struct RootView: View {
     @ViewBuilder var hitSection: some View {
         Section {
             if model.searching && model.hits.isEmpty {
-                HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("正在搜索正文…").font(.caption).foregroundStyle(.secondary) }
+                HStack(spacing: 6) { ProgressView().controlSize(.mini); Text(tr("正在搜索正文…", "Searching messages…")).font(.caption).foregroundStyle(.secondary) }
             } else if model.hits.isEmpty {
-                Text(model.query.count < 2 ? "至少输入两个字搜索正文" : "正文里没有找到").font(.caption).foregroundStyle(.tertiary)
+                Text(model.query.count < 2 ? tr("至少输入两个字搜索正文", "Type at least 2 characters to search messages") : tr("正文里没有找到", "No matches in messages")).font(.caption).foregroundStyle(.tertiary)
             }
             ForEach(model.hits) { h in
                 if let s = model.sessions.first(where: { $0.id == h.sessionId }) {
@@ -355,7 +361,7 @@ struct RootView: View {
                             Image(nsImage: appIcon(s.appPath)).resizable().frame(width: 14, height: 14)
                             Text(s.title).font(.caption.weight(.medium)).lineLimit(1)
                             Spacer(minLength: 4)
-                            Text(h.role == "user" ? "你" : "回复").font(.caption2).foregroundStyle(.tertiary)
+                            Text(h.role == "user" ? tr("你", "You") : tr("回复", "Reply")).font(.caption2).foregroundStyle(.tertiary)
                         }
                         (Text(h.before) + Text(h.match).bold().foregroundColor(claudeOrange) + Text(h.after))
                             .font(.caption).foregroundStyle(.secondary).lineLimit(2)
@@ -366,7 +372,7 @@ struct RootView: View {
                 }
             }
         } header: {
-            HStack { Text("正文匹配"); if !model.hits.isEmpty { Text("\(model.hits.count)").foregroundStyle(.tertiary) } }
+            HStack { Text(tr("正文匹配", "Message matches")); if !model.hits.isEmpty { Text("\(model.hits.count)").foregroundStyle(.tertiary) } }
         }
     }
 
@@ -374,7 +380,7 @@ struct RootView: View {
     func newMenu(folder: String?) -> some View {
         Menu {
             ForEach(newSessionApps, id: \.app) { a in
-                Button("新建 \(a.app) 会话") {
+                Button(tr("新建 \(a.app) 会话", "New \(a.app) session")) {
                     let dir = folder ?? model.sessions.first { $0.kind == a.kind && !$0.cwd.isEmpty }?.cwd ?? NSHomeDirectory()
                     model.draft = Draft(kind: a.kind, app: a.app, appPath: a.path, folder: dir)
                 }
@@ -383,27 +389,27 @@ struct RootView: View {
             Image(systemName: "plus")
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-        .help(folder.map { "在 \(($0 as NSString).lastPathComponent) 里新建会话" } ?? "新建会话")
+        .help(folder.map { tr("在 \(($0 as NSString).lastPathComponent) 里新建会话", "New session in \(($0 as NSString).lastPathComponent)") } ?? tr("新建会话", "New session"))
     }
 
     @ViewBuilder func sessionMenu(_ s: Session) -> some View {
-        Button(s.link != nil ? "在 \(s.app) 中打开" : "切到 \(s.app)") { model.openInApp(s) }
+        Button(s.link != nil ? tr("在 \(s.app) 中打开", "Open in \(s.app)") : tr("切到 \(s.app)", "Switch to \(s.app)")) { model.openInApp(s) }
         Divider()
-        Button("重命名") { deletingId = nil; editText = s.title; editingId = s.id }
-        Button("分叉") { model.act(s, .fork) }
-        Button("置顶 / 取消置顶") { model.act(s, .pin) }
-        Menu("归到项目") {
+        Button(tr("重命名", "Rename")) { deletingId = nil; editText = s.title; editingId = s.id }
+        Button(tr("分叉", "Fork")) { model.act(s, .fork) }
+        Button(tr("置顶 / 取消置顶", "Pin / unpin")) { model.act(s, .pin) }
+        Menu(tr("归到项目", "Move to project")) {
             let cur = model.boards.project(of: s.id)?.id
             ForEach(model.boards.sorted) { p in
                 Button((p.id == cur ? "✓ " : "") + p.name) { model.boards.move(s.id, to: p.id) }
             }
             Divider()
-            Button("新项目…") { if let n = askName("新项目名", s.title) { model.boards.newProject(n, with: s.id) } }
-            Button("不进看板（零散会话）") { model.boards.move(s.id, to: nil) }
+            Button(tr("新项目…", "New project…")) { if let n = askName(tr("新项目名", "New project name"), s.title) { model.boards.newProject(n, with: s.id) } }
+            Button(tr("不进看板（零散会话）", "Keep off the board (loose sessions)")) { model.boards.move(s.id, to: nil) }
         }
-        Button("归档") { model.act(s, .archive) }
+        Button(tr("归档", "Archive")) { model.act(s, .archive) }
         Divider()
-        Button("删除…", role: .destructive) { editingId = nil; deletingId = s.id }
+        Button(tr("删除…", "Delete…"), role: .destructive) { editingId = nil; deletingId = s.id }
     }
 
     var footer: some View {
@@ -413,8 +419,8 @@ struct RootView: View {
             }
             if !model.trusted {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("给 Codex / Claude 发消息需要“辅助功能”权限").font(.caption)
-                    Button("打开系统设置") {
+                    Text(tr("给 Codex / Claude 发消息需要“辅助功能”权限", "Sending messages to Codex / Claude requires Accessibility permission")).font(.caption)
+                    Button(tr("打开系统设置", "Open System Settings")) {
                         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
                     }
                     .controlSize(.small)
@@ -468,14 +474,30 @@ struct AgentCheck: View {
     var body: some View {
         let detail: String
         if !a.installed {
-            detail = "没有安装"
+            detail = tr("没有安装", "Not installed")
         } else {
-            detail = "找到 \(a.sessions) 条会话 · " + (a.running ? "正在运行" : "没开（用到时会自动在后台启动）")
+            detail = tr("找到 \(a.sessions) 条会话 · ", "\(a.sessions) session\(a.sessions == 1 ? "" : "s") found · ") + (a.running ? tr("正在运行", "Running") : tr("没开（用到时会自动在后台启动）", "Not running (starts in the background when needed)"))
         }
         let canStart = a.installed && !a.running
         return CheckRow(ok: a.installed, icon: a.installed ? appIcon(a.path) : nil, title: a.app, detail: detail,
-                        actionLabel: canStart ? "现在启动" : nil,
+                        actionLabel: canStart ? tr("现在启动", "Start now") : nil,
                         action: { let p = a.path; Task { _ = try? await ensureRunning(p) } })
+    }
+}
+
+/// 界面语言切换：两个选项始终用各自的语言显示；切换后应用自动重启
+struct LanguageSwitcher: View {
+    @State private var lang = appLang
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 3) {
+            Picker("", selection: $lang) {
+                Text("中文").tag("zh")
+                Text("English").tag("en")
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .onChange(of: lang) { switchLanguage(to: $0) }
+            Text(tr("切换后会自动重启", "AgentDock restarts to apply")).font(.caption2).foregroundStyle(.tertiary)
+        }
     }
 }
 
@@ -484,17 +506,20 @@ struct WelcomeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 48, height: 48)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("AgentDock").font(.title2.weight(.semibold))
-                    Text("在一个窗口里查看和回复 Claude、Codex、Antigravity 的会话").foregroundStyle(.secondary)
+                    Text(tr("在一个窗口里查看和回复 Claude、Codex、Antigravity 的会话", "View and reply to Claude, Codex, and Antigravity sessions in one window")).foregroundStyle(.secondary)
                 }
+                Spacer(minLength: 8)
+                LanguageSwitcher()
             }
             VStack(alignment: .leading, spacing: 0) {
-                CheckRow(ok: model.trusted, title: "辅助功能权限",
-                         detail: model.trusted ? "已开启：可以在后台替你发消息、切模型、管理会话" : "看会话不需要；发消息、切模型、管理会话需要",
-                         actionLabel: model.trusted ? nil : "去开启", action: openAccessibilitySettings)
+                CheckRow(ok: model.trusted, title: tr("辅助功能权限", "Accessibility permission"),
+                         detail: model.trusted ? tr("已开启：可以在后台替你发消息、切模型、管理会话", "On: AgentDock can send messages, switch models, and manage sessions for you in the background")
+                                               : tr("看会话不需要；发消息、切模型、管理会话需要", "Not needed to view sessions; needed to send messages, switch models, and manage sessions"),
+                         actionLabel: model.trusted ? nil : tr("去开启", "Turn on"), action: openAccessibilitySettings)
                 ForEach(model.agents) { a in
                     Divider().padding(.leading, 48)
                     AgentCheck(a: a)
@@ -505,15 +530,15 @@ struct WelcomeView: View {
             // 自检结果：每个应用的关键操作还能不能用
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("自检").font(.body.weight(.medium))
-                    if let t = model.checkTime { Text("上次 " + hhmm(t)).font(.caption).foregroundStyle(.tertiary) }
+                    Text(tr("自检", "Self-check")).font(.body.weight(.medium))
+                    if let t = model.checkTime { Text(tr("上次 ", "Last run ") + hhmm(t)).font(.caption).foregroundStyle(.tertiary) }
                     Spacer()
                     if model.checking { ProgressView().controlSize(.small) } else {
-                        Button("重新自检") { model.runSelfCheck() }.controlSize(.small)
+                        Button(tr("重新自检", "Run again")) { model.runSelfCheck() }.controlSize(.small)
                     }
                 }
                 if model.checks.isEmpty && !model.checking {
-                    Text("启动 10 秒后自动检查；原应用升级后也会自动再查。只读，不发送、不改设置。").font(.caption).foregroundStyle(.secondary)
+                    Text(tr("启动 10 秒后自动检查；原应用升级后也会自动再查。只读，不发送、不改设置。", "Runs 10 seconds after launch and again whenever an original app updates. Read-only: it doesn’t send anything or change settings.")).font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(model.checks) { c in
                     HStack(alignment: .top, spacing: 8) {
@@ -525,10 +550,10 @@ struct WelcomeView: View {
             .padding(14)
             .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.035)))
             HStack {
-                Text("会话记录直接从本机读取，不用先打开这些应用。在左边选一个会话开始，或点 ＋ 新建。")
+                Text(tr("会话记录直接从本机读取，不用先打开这些应用。在左边选一个会话开始，或点 ＋ 新建。", "Sessions are read straight from this Mac, so these apps don’t need to be open. Pick a session on the left, or click ＋ to start one."))
                     .font(.callout).foregroundStyle(.secondary)
                 Spacer()
-                Button("使用引导") { NotificationCenter.default.post(name: .showGuide, object: nil) }.controlSize(.small)
+                Button(tr("使用引导", "Guide")) { NotificationCenter.default.post(name: .showGuide, object: nil) }.controlSize(.small)
             }
         }
         .frame(maxWidth: 560)
@@ -623,9 +648,9 @@ struct ProjectSections: View {
                         Image(systemName: "square.grid.2x2")
                         Text(p.name).lineLimit(1)
                         Text("\(rows.count)").foregroundStyle(.tertiary)
-                        if !p.decisions.isEmpty { Circle().fill(Color.red.opacity(0.8)).frame(width: 6, height: 6).help("有 \(p.decisions.count) 件事等你定") }
+                        if !p.decisions.isEmpty { Circle().fill(Color.red.opacity(0.8)).frame(width: 6, height: 6).help(tr("有 \(p.decisions.count) 件事等你定", p.decisions.count == 1 ? "1 item needs your decision" : "\(p.decisions.count) items need your decision")) }
                         Spacer()
-                        Button("看板") { model.board = p.id }.buttonStyle(.borderless).font(.caption)
+                        Button(tr("看板", "Board")) { model.board = p.id }.buttonStyle(.borderless).font(.caption)
                     }
                 }
             }
@@ -633,8 +658,8 @@ struct ProjectSections: View {
         let rest = items.filter { s in store.project(of: s.id) == nil }
         let loose = rest.filter { store.isLoose($0.id) }
         let todo = rest.filter { !store.isLoose($0.id) }
-        if !todo.isEmpty { section("未归类", todo) { HStack { Text("未归类"); Text("\(todo.count)").foregroundStyle(.tertiary) } } }
-        if !loose.isEmpty { section("零散", loose) { HStack { Text("零散会话"); Text("\(loose.count)").foregroundStyle(.tertiary) } } }
+        if !todo.isEmpty { section("未归类", todo) { HStack { Text(tr("未归类", "Unsorted")); Text("\(todo.count)").foregroundStyle(.tertiary) } } }
+        if !loose.isEmpty { section("零散", loose) { HStack { Text(tr("零散会话", "Loose sessions")); Text("\(loose.count)").foregroundStyle(.tertiary) } } }
     }
 
     @ViewBuilder func section<H: View>(_ key: String, _ rows: [Session], @ViewBuilder header: () -> H) -> some View {
@@ -652,8 +677,8 @@ func askName(_ title: String, _ initial: String) -> String? {
     let f = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
     f.stringValue = initial
     a.accessoryView = f
-    a.addButton(withTitle: "好")
-    a.addButton(withTitle: "取消")
+    a.addButton(withTitle: tr("好", "OK"))
+    a.addButton(withTitle: tr("取消", "Cancel"))
     a.window.initialFirstResponder = f
     guard a.runModal() == .alertFirstButtonReturn else { return nil }
     let n = f.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)

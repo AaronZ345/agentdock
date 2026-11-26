@@ -107,7 +107,10 @@ struct BoardSuggestion: Codable, Equatable, Identifiable {
         date = (try? c.decode(String.self, forKey: .date)) ?? ""
     }
     /// 忽略后记进“不追踪的”用的文字
-    var key: String { kind == "改目标" ? "建议改目标：" + goal : kind == "改大类" ? "建议改大类：\(title)：\(goal)" : title }
+    var key: String {
+        kind == "改目标" ? tr("建议改目标：", "Suggested goal: ") + goal
+            : kind == "改大类" ? tr("建议改大类：\(title)：\(goal)", "Suggested workstream change: \(title): \(goal)") : title
+    }
 }
 
 struct Project: Codable, Equatable, Identifiable {
@@ -131,7 +134,7 @@ struct Project: Codable, Equatable, Identifiable {
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = (try? c.decode(String.self, forKey: .id)) ?? id
-        name = (try? c.decode(String.self, forKey: .name)) ?? "未命名"
+        name = (try? c.decode(String.self, forKey: .name)) ?? tr("未命名", "Untitled")
         goal = (try? c.decode(String.self, forKey: .goal)) ?? ""
         goalByUser = (try? c.decode(Bool.self, forKey: .goalByUser)) ?? false
         status = (try? c.decode(String.self, forKey: .status)) ?? ""
@@ -487,39 +490,43 @@ final class BoardStore: ObservableObject {
     private func writeFiles() {
         try? FileManager.default.createDirectory(at: boardDir, withIntermediateDirectories: true)
         for p in projects { try? markdown(p).write(to: p.fileURL, atomically: true, encoding: .utf8) }
-        var idx = "# 项目看板索引\n\n由 AgentDock 根据各 agent 会话自动维护。开始或继续某个项目前，先读对应文件，找回当前目标、已验证的结论和等你定的事。\n\n"
-        for p in sorted { idx += "- [\(p.name)](\(p.fileURL.lastPathComponent))：\(p.goal.isEmpty ? "（待汇总）" : p.goal)\n" }
+        var idx = tr("# 项目看板索引\n\n由 AgentDock 根据各 agent 会话自动维护。开始或继续某个项目前，先读对应文件，找回当前目标、已验证的结论和等你定的事。\n\n",
+                     "# Project board index\n\nMaintained automatically by AgentDock from your agent sessions. Before starting or resuming a project, read its file to recover the current goal, verified findings, and decisions waiting on you.\n\n")
+        for p in sorted { idx += "- [\(p.name)](\(p.fileURL.lastPathComponent))\(tr("：", ": "))\(p.goal.isEmpty ? tr("（待汇总）", "(not summarized yet)") : p.goal)\n" }
         try? idx.write(to: boardDir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
         writeContextFiles()
     }
 
     func markdown(_ p: Project) -> String {
         let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd HH:mm"
-        let names = p.sessions.compactMap { lookup($0).map { "「\($0.title)」(\($0.app))" } }
-        var m = "# \(p.name)\n\n> 由 AgentDock 根据各会话自动维护\(p.updated.map { "，更新于 " + df.string(from: $0) } ?? "")。关联会话：\(names.joined(separator: "、"))\n\n"
-        func src(_ e: BoardEntry) -> String { e.session.isEmpty ? "" : "（\(e.session)）" }
-        if !p.goal.isEmpty { m += "## 当前目标\n\n\(p.goal)\n\n" }
-        if !p.status.isEmpty { m += "## 现状\n\n\(p.status)\n\n" }
-        if !p.decisions.isEmpty { m += "## 等你定\n\n" + p.decisions.map { "- " + $0.text + src($0) }.joined(separator: "\n") + "\n\n" }
+        let names = p.sessions.compactMap { lookup($0).map { tr("「\($0.title)」(\($0.app))", "\"\($0.title)\" (\($0.app))") } }
+        let upd = p.updated.map { tr("，更新于 ", ", updated ") + df.string(from: $0) } ?? ""
+        var m = "# \(p.name)\n\n> " + tr("由 AgentDock 根据各会话自动维护\(upd)。关联会话：\(names.joined(separator: "、"))",
+                                          "Maintained automatically by AgentDock from its sessions\(upd). Linked sessions: \(names.joined(separator: ", "))") + "\n\n"
+        func src(_ e: BoardEntry) -> String { e.session.isEmpty ? "" : tr("（\(e.session)）", " (\(e.session))") }
+        if !p.goal.isEmpty { m += tr("## 当前目标", "## Current goal") + "\n\n\(p.goal)\n\n" }
+        if !p.status.isEmpty { m += tr("## 现状", "## Status") + "\n\n\(p.status)\n\n" }
+        if !p.decisions.isEmpty { m += tr("## 等你定", "## Needs your decision") + "\n\n" + p.decisions.map { "- " + $0.text + src($0) }.joined(separator: "\n") + "\n\n" }
         if !p.tracks.isEmpty {
-            m += "## 各大类进度\n\n| 大类 | 状态 | 现在走到哪 | 最近 |\n|---|---|---|---|\n"
-            for t in p.tracks { m += "| \(t.title) | \(t.state) | \(t.now.replacingOccurrences(of: "|", with: "/")) | \(t.updated) |\n" }
+            m += tr("## 各大类进度\n\n| 大类 | 状态 | 现在走到哪 | 最近 |", "## Workstreams\n\n| Workstream | State | Where it stands | Last update |") + "\n|---|---|---|---|\n"
+            for t in p.tracks { m += "| \(t.title) | \(stateLabel(t.state)) | \(t.now.replacingOccurrences(of: "|", with: "/")) | \(t.updated) |\n" }
             m += "\n"
         }
         for t in p.tracks {
-            m += "### \(t.title)（\(t.state)）\n\n"
-            if !t.goal.isEmpty { m += "目标：\(t.goal)\n\n" }
-            if !t.now.isEmpty { m += "现在：\(t.now)\n\n" }
+            m += "### \(t.title)" + tr("（\(t.state)）", " (\(stateLabel(t.state)))") + "\n\n"
+            if !t.goal.isEmpty { m += tr("目标：", "Done when: ") + t.goal + "\n\n" }
+            if !t.now.isEmpty { m += tr("现在：", "Now: ") + t.now + "\n\n" }
             let order = ["有效", "无效", "待验证"]
             let learned = t.learned.sorted { (order.firstIndex(of: $0.state) ?? 3) < (order.firstIndex(of: $1.state) ?? 3) }
             if !learned.isEmpty {
-                m += "结论：\n\n" + learned.map { e in
-                    let tag = e.state == "无效" ? "【无效，别再试】" : e.state.isEmpty ? "" : "【\(e.state)】"
-                    return "- \(tag)\(e.text)" + (e.evidence.isEmpty ? "" : "——依据：\(e.evidence)") + src(e)
+                m += tr("结论：", "Findings:") + "\n\n" + learned.map { e in
+                    let tag = e.state == "无效" ? tr("【无效，别再试】", "[Doesn't work, don't retry] ")
+                        : e.state.isEmpty ? "" : tr("【\(e.state)】", "[\(stateLabel(e.state))] ")
+                    return "- \(tag)\(e.text)" + (e.evidence.isEmpty ? "" : tr("——依据：", " — evidence: ") + e.evidence) + src(e)
                 }.joined(separator: "\n") + "\n\n"
             }
-            if !t.next.isEmpty { m += "下一步：\n\n" + t.next.map { "- " + $0.text }.joined(separator: "\n") + "\n\n" }
-            if !t.log.isEmpty { m += "进展：\n\n" + t.log.reversed().map { "- " + ($0.date.isEmpty ? "" : $0.date + " ") + $0.text + src($0) }.joined(separator: "\n") + "\n\n" }
+            if !t.next.isEmpty { m += tr("下一步：", "Next steps:") + "\n\n" + t.next.map { "- " + $0.text }.joined(separator: "\n") + "\n\n" }
+            if !t.log.isEmpty { m += tr("进展：", "Progress:") + "\n\n" + t.log.reversed().map { "- " + ($0.date.isEmpty ? "" : $0.date + " ") + $0.text + src($0) }.joined(separator: "\n") + "\n\n" }
         }
         return m
     }
@@ -561,7 +568,7 @@ final class BoardStore: ObservableObject {
         for (id, d) in deltas.sorted(by: { $0.value.s.updated < $1.value.s.updated }) {
             if let p = project(of: id) { groups[p.id, default: []].append(id); continue }
             if loose.contains(id) && (pinned.contains(id) || d.text.count < 3000) { if let c = d.last { cursors[id] = c }; continue }
-            busy = "归类「\(d.s.title)」"
+            busy = tr("归类「\(d.s.title)」", "Classifying \"\(d.s.title)\"")
             do {
                 let name = try await classify(d.s, d.text)
                 if name.isEmpty {
@@ -583,8 +590,8 @@ final class BoardStore: ObservableObject {
         // 3. 每个项目一次更新，把这次各会话的新增内容一起给 agent
         for (pid, ids) in groups {
             guard let p = projects.first(where: { $0.id == pid }) else { continue }
-            busy = "更新「\(p.name)」"
-            let text = ids.compactMap { deltas[$0] }.map { "### 会话「\($0.s.title)」（\($0.s.app)）\n\n\($0.text)" }.joined(separator: "\n\n")
+            busy = tr("更新「\(p.name)」", "Updating \"\(p.name)\"")
+            let text = ids.compactMap { deltas[$0] }.map { sessionHeading($0.s) + "\n\n\($0.text)" }.joined(separator: "\n\n")
             do {
                 let t0 = Date()
                 let b = try await update(p, text)
@@ -593,7 +600,7 @@ final class BoardStore: ObservableObject {
                 // 有会话这次的内容其实是别的项目的事：重新归类（你手动归过的不动）
                 for title in (b["moved"] as? [String]) ?? [] {
                     guard let id = ids.first(where: { deltas[$0]?.s.title == title }), !pinned.contains(id), let d = deltas[id] else { continue }
-                    busy = "重新归类「\(title)」"
+                    busy = tr("重新归类「\(title)」", "Reclassifying \"\(title)\"")
                     guard let name = try? await classify(d.s, d.text), name != p.name else { continue }
                     for i in projects.indices { projects[i].sessions.removeAll { $0 == id } }
                     if name.isEmpty { loose.insert(id); log("board: \(title) moved to loose"); continue }
@@ -601,7 +608,7 @@ final class BoardStore: ObservableObject {
                     mutate(target.id) { $0.sessions.append(id) }
                     log("board: \(title) moved \(p.name) → \(name)")
                     if let t = projects.first(where: { $0.id == target.id }),
-                       let o = try? await update(t, "### 会话「\(d.s.title)」（\(d.s.app)）\n\n\(d.text)") {
+                       let o = try? await update(t, sessionHeading(d.s) + "\n\n\(d.text)") {
                         mutate(t.id) { q in q.apply(o); q.updated = Date() }
                     }
                 }
@@ -617,18 +624,18 @@ final class BoardStore: ObservableObject {
         // 4. 按你的修改刷新：重读各会话最近的内容，和你的修改一起交给 agent 整体重新整理
         for pid in refreshing {
             guard let p = projects.first(where: { $0.id == pid }) else { refreshing.remove(pid); continue }
-            busy = "按修改刷新「\(p.name)」"
+            busy = tr("按修改刷新「\(p.name)」", "Refreshing \"\(p.name)\" with your edits")
             var parts: [String] = [], lasts: [String: BoardCursor] = [:]
             for sid in p.sessions {
                 guard let s = lookup(sid) else { continue }
                 let d = await Task.detached { sessionDelta(s, after: nil) }.value
                 if let c = d.last { lasts[sid] = c }
-                if !d.text.isEmpty { parts.append("### 会话「\(s.title)」（\(s.app)）\n\n\(String(d.text.suffix(max(8000, 60000 / max(1, p.sessions.count)))))") }
+                if !d.text.isEmpty { parts.append(sessionHeading(s) + "\n\n\(String(d.text.suffix(max(8000, 60000 / max(1, p.sessions.count)))))") }
             }
             let n = p.edits.count
             do {
                 let t0 = Date()
-                let o = try await update(p, parts.isEmpty ? "（没有会话内容，只按用户的修改重新整理）" : parts.joined(separator: "\n\n"), reorganize: true)
+                let o = try await update(p, parts.isEmpty ? tr("（没有会话内容，只按用户的修改重新整理）", "(No session content; reorganize based on the user's edits only.)") : parts.joined(separator: "\n\n"), reorganize: true)
                 mutate(pid) { q in q.apply(o); q.updated = Date(); q.edits.removeFirst(min(n, q.edits.count)) }
                 for (sid, c) in lasts { cursors[sid] = c }
                 lastError = nil
@@ -649,13 +656,13 @@ final class BoardStore: ObservableObject {
         if runningApp("/Applications/Antigravity.app") != nil { var t = settings; t.agent = "gemini"; add(t) }
         if codexCLI() != nil { var t = settings; t.agent = "codex"; add(t) }
         if claudeCLI() != nil { var t = settings; t.agent = "claude"; t.claudeModel = "haiku"; add(t) }
-        var last: Error = BoardError("没有可用的汇总 agent")
+        var last: Error = BoardError(tr("没有可用的汇总 agent", "No summarizer agent available"))
         for (i, t) in tries.enumerated() {
             do {
                 let out = try await runBoardAgent(system: system, prompt: prompt, settings: t)
                 if i > 0 { log("board: fell back to \(t.label)") }
                 return out
-            } catch let e as BoardError where e.message.contains("safeguards") || e.message.contains("flagged") || e.message.contains("Antigravity 没开") {
+            } catch let e as BoardError where e.message.contains("safeguards") || e.message.contains("flagged") || e.message.contains("Antigravity 没开") || e.message.contains("Antigravity isn't running") {
                 last = e
                 log("board: \(t.label) unavailable (\(e.message.prefix(60))), trying next")
             }
@@ -679,9 +686,9 @@ final class BoardStore: ObservableObject {
         工作目录：\(s.cwd)
         会话内容（节选）：
         \(String(text.prefix(12000)))
-        """
+        """ + (isEnglish ? englishClassifyNote : "")
         let out = try await runAgent(system: classifyPrompt, prompt: prompt)
-        guard let o = parseJSON(out), let name = o["project"] as? String else { throw BoardError("归类结果读不懂：\(out.prefix(200))") }
+        guard let o = parseJSON(out), let name = o["project"] as? String else { throw BoardError(tr("归类结果读不懂：", "Couldn't parse the classification result: ") + out.prefix(200)) }
         return name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -706,14 +713,17 @@ final class BoardStore: ObservableObject {
 
         这次各会话新增的内容：
         \(text)
-        """
+        """ + (isEnglish ? englishBoardNote : "")
         let out = try await runAgent(system: updatePrompt, prompt: prompt)
-        guard let o = parseJSON(out), o["tracks"] != nil || o["goal"] != nil else { throw BoardError("看板更新结果读不懂：\(out.prefix(200))") }
+        guard let o = parseJSON(out), o["tracks"] != nil || o["goal"] != nil else { throw BoardError(tr("看板更新结果读不懂：", "Couldn't parse the board update: ") + out.prefix(200)) }
         return o
     }
 }
 
 struct BoardError: Error { let message: String; init(_ m: String) { message = m } }
+
+/// 交给 agent 的会话内容小标题
+private func sessionHeading(_ s: Session) -> String { tr("### 会话「\(s.title)」（\(s.app)）", "### Session \"\(s.title)\" (\(s.app))") }
 
 // MARK: 读会话的新增内容
 
@@ -729,11 +739,11 @@ func sessionDelta(_ s: Session, after cur: BoardCursor?) -> (text: String, last:
     }
     let new = Array(items[start...])
     func line(_ it: Item) -> String {
-        let who = it.kind == "user" ? "用户" : "助手"
+        let who = it.kind == "user" ? tr("用户", "User") : tr("助手", "Assistant")
         let t = it.ts.count >= 16 ? " " + String(it.ts.dropFirst(5).prefix(11)).replacingOccurrences(of: "T", with: " ") : ""
         let body = it.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let cap = it.kind == "user" ? 2500 : 3000
-        return "[\(who)\(t)] " + (body.count > cap ? String(body.prefix(cap)) + "…（截断）" : body)
+        return "[\(who)\(t)] " + (body.count > cap ? String(body.prefix(cap)) + tr("…（截断）", "… (truncated)") : body)
     }
     var lines = new.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map(line)
     guard !lines.isEmpty else { return ("", last) }
@@ -744,7 +754,7 @@ func sessionDelta(_ s: Session, after cur: BoardCursor?) -> (text: String, last:
     var tail: [String] = [], n = head.joined().count
     for l in lines.reversed() { if n + l.count > budget { break }; tail.insert(l, at: 0); n += l.count }
     let skipped = lines.count - tail.count
-    let text = (head + (skipped > 0 ? ["……（中间省略 \(skipped) 条）"] : []) + tail).joined(separator: "\n\n")
+    let text = (head + (skipped > 0 ? [tr("……（中间省略 \(skipped) 条）", "… (\(skipped) messages omitted)")] : []) + tail).joined(separator: "\n\n")
     return (text, last)
 }
 
@@ -756,6 +766,26 @@ private let classifyPrompt = """
 - 是一个新的、需要持续推进的项目：起一个简短的中文项目名（4 到 12 个字，人名、模型名、技术名保留英文）。
 - 只是零散的一次性问答、闲聊、查个东西、调一下工具，不属于任何持续项目：返回空字符串。
 只输出一个 JSON 对象，不要任何别的文字：{"project": "项目名或空字符串"}
+"""
+
+/// 英文界面：项目名用英文（追加在 classify 拼的提示末尾）
+private let englishClassifyNote = """
+
+
+LANGUAGE: The user's interface is in English. A new project name must be in English (2 to 6 words), not Chinese; this overrides the instruction above about Chinese names. Keep names of people, models, and technologies as they are. If the session belongs to an existing project, return that project's name exactly as listed, even if it is in Chinese. Example: {"project": "Speech recognition accuracy"}
+"""
+
+/// 英文界面：看板文字用英文，但状态、结论、建议类型这些取值仍用中文（程序按原文比对）。追加在 update 拼的提示末尾（含整体刷新）
+private let englishBoardNote = """
+
+
+LANGUAGE: The user's interface is in English. Write all board text you produce in English: goal, status, track titles and goals, now, every entry text, evidence, log and next items, decisions, and suggestion titles, goals, and reasons. This overrides the instruction above to write in Chinese. Keep names of people, models, and technologies as they are. Text that already exists on the board is still output verbatim where the rules above say so (goal, track id/title/goal, entries with "by":"user").
+EXCEPTION: the enum fields are read literally by the app and must use exactly these Chinese values, never translated:
+- tracks[].state: 进行中 / 卡住 / 等你定 / 已解决 / 搁置
+- learned[].verdict: 有效 / 无效 / 待验证
+- suggestions[].kind: 新大类 / 改目标 / 改大类
+Example of the expected mix:
+{"goal":"Cut ASR word error rate below 5%","status":"Retraining from scratch; waiting on the eval run","decisions":[{"text":"Pick the eval set: internal or public","session":"…"}],"tracks":[{"id":"…","title":"Named-entity accuracy","goal":"Entity error rate under 2%","state":"进行中","now":"From-scratch run at step 6k, entity errors down to 3.1%","updated":"11-25","learned":[{"text":"Continuing from the old LoRA doesn't remove the entity bias; train from scratch","verdict":"有效","evidence":"Entity errors 7.8% → 3.1%","session":"…"}],"log":[{"date":"11-25","text":"Switched to from-scratch training","session":"…"}],"next":[{"text":"Run the full eval at step 10k"}]}],"suggestions":[{"kind":"新大类","title":"Inference latency","goal":"Under 300 ms per turn","reason":"Latency complaints came up in two sessions"}],"moved":[]}
 """
 
 private let updatePrompt = """
@@ -804,16 +834,18 @@ struct BoardAgentChoice: Identifiable, Hashable {
     static var all: [BoardAgentChoice] {
         var a: [BoardAgentChoice] = []
         if claudeCLI() != nil {
-            a += [("opus", "Opus 5.5（推荐，最准）"), ("sonnet", "Sonnet 5.5（省一些）"), ("haiku", "Haiku 5.5（最快最省）")]
+            a += [("opus", tr("Opus 5.5（推荐，最准）", "Opus 5.5 (recommended, most accurate)")), ("sonnet", tr("Sonnet 5.5（省一些）", "Sonnet 5.5 (cheaper)")),
+                  ("haiku", tr("Haiku 5.5（最快最省）", "Haiku 5.5 (fastest, cheapest)"))]
                 .map { BoardAgentChoice(agent: "claude", model: $0.0, label: "Claude " + $0.1) }
         }
         if codexCLI() != nil {
-            a += [("low", "低强度"), ("medium", "中强度"), ("high", "高强度")]
-                .map { BoardAgentChoice(agent: "codex", model: $0.0, label: "Codex 默认模型 · " + $0.1) }
+            a += [("low", tr("低强度", "low effort")), ("medium", tr("中强度", "medium effort")), ("high", tr("高强度", "high effort"))]
+                .map { BoardAgentChoice(agent: "codex", model: $0.0, label: tr("Codex 默认模型 · ", "Codex default model · ") + $0.1) }
         }
         if FileManager.default.isExecutableFile(atPath: agyServer) {
-            a += [("gemini-4-neon-high", "Gemini 4 Neon 高强度"), ("gemini-4-neon-medium", "Gemini 4 Neon 中强度"), ("gemini-3.8-flash-medium", "Gemini 3.8 Flash（快）")]
-                .map { BoardAgentChoice(agent: "gemini", model: $0.0, label: $0.1 + "（要开着 Antigravity）") }
+            a += [("gemini-4-neon-high", tr("Gemini 4 Neon 高强度", "Gemini 4 Neon high")), ("gemini-4-neon-medium", tr("Gemini 4 Neon 中强度", "Gemini 4 Neon medium")),
+                  ("gemini-3.8-flash-medium", tr("Gemini 3.8 Flash（快）", "Gemini 3.8 Flash (fast)"))]
+                .map { BoardAgentChoice(agent: "gemini", model: $0.0, label: $0.1 + tr("（要开着 Antigravity）", " (requires Antigravity running)")) }
         }
         return a
     }
@@ -855,14 +887,14 @@ func runBoardAgent(system: String, prompt: String, settings: BoardSettings) asyn
     p.currentDirectoryURL = boardWork
     var outFile: URL?
     if settings.agent == "codex" {
-        guard let c = codexCLI() else { throw BoardError("没找到 Codex 命令行") }
+        guard let c = codexCLI() else { throw BoardError(tr("没找到 Codex 命令行", "Codex CLI not found")) }
         let f = boardWork.appendingPathComponent("codex-out-\(UUID().uuidString).txt")
         outFile = f
         p.executableURL = URL(fileURLWithPath: c)
         p.arguments = ["exec", "--ephemeral", "--skip-git-repo-check", "-s", "read-only", "-C", boardWork.path,
                        "-c", "model_reasoning_effort=\"\(settings.codexEffort)\"", "-o", f.path, "-"]
     } else {
-        guard let c = claudeCLI() else { throw BoardError("没找到 Claude Code 命令行") }
+        guard let c = claudeCLI() else { throw BoardError(tr("没找到 Claude Code 命令行", "Claude Code CLI not found")) }
         p.executableURL = URL(fileURLWithPath: c.path)
         p.arguments = c.pre + ["-p", "--model", settings.claudeModel, "--tools", "", "--no-session-persistence", "--strict-mcp-config",
                                "--disable-slash-commands", "--settings", "{\"disableAllHooks\":true}", "--output-format", "json",
@@ -874,7 +906,7 @@ func runBoardAgent(system: String, prompt: String, settings: BoardSettings) asyn
     let result: (Int32, Data, Data) = try await withCheckedThrowingContinuation { cont in
         let q = DispatchQueue(label: "agentdock.board.agent")
         q.async {
-            do { try p.run() } catch { cont.resume(throwing: BoardError("启动汇总 agent 失败：\(error.localizedDescription)")); return }
+            do { try p.run() } catch { cont.resume(throwing: BoardError(tr("启动汇总 agent 失败：", "Couldn't start the summarizer: ") + error.localizedDescription)); return }
             let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
             q.asyncAfter(deadline: .now() + 300, execute: killer)
             DispatchQueue.global().async {
@@ -895,14 +927,14 @@ func runBoardAgent(system: String, prompt: String, settings: BoardSettings) asyn
     if settings.agent == "codex" {
         defer { if let f = outFile { try? FileManager.default.removeItem(at: f) } }
         guard code == 0, let f = outFile, let s = try? String(contentsOf: f, encoding: .utf8), !s.isEmpty else {
-            throw BoardError("Codex 汇总失败（退出码 \(code)）：\(String(decoding: err.suffix(300), as: UTF8.self))")
+            throw BoardError(tr("Codex 汇总失败（退出码 \(code)）：", "Codex summarizer failed (exit code \(code)): ") + String(decoding: err.suffix(300), as: UTF8.self))
         }
         return s
     }
     guard let o = try? JSONSerialization.jsonObject(with: out) as? [String: Any] else {
-        throw BoardError("Claude 汇总失败（退出码 \(code)）：\(String(decoding: (out + err).suffix(300), as: UTF8.self))")
+        throw BoardError(tr("Claude 汇总失败（退出码 \(code)）：", "Claude summarizer failed (exit code \(code)): ") + String(decoding: (out + err).suffix(300), as: UTF8.self))
     }
-    if (o["is_error"] as? Bool) == true { throw BoardError("Claude 汇总失败：\(o["result"] as? String ?? "")") }
+    if (o["is_error"] as? Bool) == true { throw BoardError(tr("Claude 汇总失败：", "Claude summarizer failed: ") + (o["result"] as? String ?? "")) }
     return o["result"] as? String ?? ""
 }
 
@@ -916,15 +948,15 @@ private let agyServer = "/Applications/Antigravity.app/Contents/Resources/bin/la
 /// 回复看对话记录：最后一步是模型的回复、已完成，且 2 秒内没有新步骤，就算答完。5 分钟超时。
 /// 不论成败都删掉这个对话（官方接口 DeleteCascadeTrajectory，对话记录和会话库里的条目一起删）
 func runGemini(_ prompt: String, model: String) async throws -> String {
-    guard runningApp("/Applications/Antigravity.app") != nil else { throw BoardError("Antigravity 没开，Gemini 用不了") }
+    guard runningApp("/Applications/Antigravity.app") != nil else { throw BoardError(tr("Antigravity 没开，Gemini 用不了", "Antigravity isn't running, so Gemini is unavailable")) }
     let full = prompt + "\n\n（不要调用任何工具，不要读写文件、不要运行命令，直接按要求输出。）"
     let out: String
     do {
         out = try await Task.detached { try runAgentapi(["new-conversation", "--model=\(model)", "--title=\(boardScratchTitle)", full]) }.value
-    } catch let e as SendError { throw BoardError("Gemini 新建对话失败：\(e.message)") }
+    } catch let e as SendError { throw BoardError(tr("Gemini 新建对话失败：", "Couldn't start a Gemini conversation: ") + e.message) }
     guard let o = jsonSlice(out).flatMap({ try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }),
           let cid = ((o["response"] as? [String: Any])?["newConversation"] as? [String: Any])?["conversationId"] as? String
-    else { throw BoardError("Gemini 新建对话没返回对话 id：\(out.prefix(200))") }
+    else { throw BoardError(tr("Gemini 新建对话没返回对话 id：", "Gemini didn't return a conversation ID: ") + out.prefix(200)) }
     func cleanup() async {
         _ = try? await agyRPC("CancelCascadeInvocation", ["cascadeId": cid])
         _ = try? await agyRPC("DeleteCascadeTrajectory", ["cascadeId": cid])
@@ -950,7 +982,7 @@ private func waitGemini(_ cid: String) async throws -> String {
         let lines = text.split(separator: "\n").compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
         guard let last = lines.last else { continue }
         if (last["type"] as? String)?.contains("ERROR") == true || (last["status"] as? String) == "ERROR" {
-            throw BoardError("Gemini 出错：\(String(describing: last["content"] ?? last).prefix(200))")
+            throw BoardError(tr("Gemini 出错：", "Gemini error: ") + String(describing: last["content"] ?? last).prefix(200))
         }
         let done = last["source"] as? String == "MODEL" && last["type"] as? String == "PLANNER_RESPONSE"
             && last["status"] as? String == "DONE" && !((last["content"] as? String) ?? "").isEmpty
@@ -958,7 +990,7 @@ private func waitGemini(_ cid: String) async throws -> String {
         lastCount = lines.count
         if stable >= 2 { return last["content"] as? String ?? "" }
     }
-    throw BoardError("Gemini 5 分钟没答完")
+    throw BoardError(tr("Gemini 5 分钟没答完", "Gemini didn't finish within 5 minutes"))
 }
 
 // MARK: 让会话读到项目看板
@@ -974,20 +1006,24 @@ let boardHookCommand = "'/Applications/AgentDock.app/Contents/MacOS/AgentDock' -
 extension Project {
     /// 注入到会话里的精简版
     var contextText: String {
-        var m = "【项目看板：\(name)】由 AgentDock 根据这个项目的各个 agent 会话自动维护，目标和大类由用户确认。动手前先对齐；完整内容（含进展记录）见 \(fileURL.path)\n"
-        if !goal.isEmpty { m += "\n总目标：\(goal)\n" }
-        if !status.isEmpty { m += "现状：\(status)\n" }
-        if !decisions.isEmpty { m += "\n等用户拍板：\n" + decisions.map { "- " + $0.text }.joined(separator: "\n") + "\n" }
+        var m = tr("【项目看板：\(name)】由 AgentDock 根据这个项目的各个 agent 会话自动维护，目标和大类由用户确认。动手前先对齐；完整内容（含进展记录）见 \(fileURL.path)\n",
+                   "[Project board: \(name)] Maintained automatically by AgentDock from this project's agent sessions; the goal and workstreams are confirmed by the user. Align with it before you start. Full board (including the progress log): \(fileURL.path)\n")
+        if !goal.isEmpty { m += "\n" + tr("总目标：", "Overall goal: ") + goal + "\n" }
+        if !status.isEmpty { m += tr("现状：", "Status: ") + status + "\n" }
+        if !decisions.isEmpty { m += "\n" + tr("等用户拍板：", "Waiting on the user's decision:") + "\n" + decisions.map { "- " + $0.text }.joined(separator: "\n") + "\n" }
         if !tracks.isEmpty {
-            m += "\n各大类：\n"
+            m += "\n" + tr("各大类：", "Workstreams:") + "\n"
             for t in tracks {
-                m += "- [\(t.state)] \(t.title)" + (t.goal.isEmpty ? "" : "（完成标准：\(t.goal)）") + (t.now.isEmpty ? "" : "：\(t.now)") + "\n"
+                m += "- [\(stateLabel(t.state))] \(t.title)" + (t.goal.isEmpty ? "" : tr("（完成标准：\(t.goal)）", " (done when: \(t.goal))"))
+                    + (t.now.isEmpty ? "" : tr("：", ": ") + t.now) + "\n"
             }
         }
-        for (v, title) in [("有效", "验证有效的做法"), ("无效", "验证无效的做法（别再试）")] {
+        for (v, title) in [("有效", tr("验证有效的做法", "Approaches verified to work")), ("无效", tr("验证无效的做法（别再试）", "Approaches verified not to work (don't retry)"))] {
             let xs = tracks.flatMap { t in t.learned.filter { $0.state == v }.map { (t.title, $0) } }
             if !xs.isEmpty {
-                m += "\n\(title)：\n" + xs.prefix(10).map { "- \($0.1.text)" + ($0.1.evidence.isEmpty ? "" : "（\($0.1.evidence)）") + "〔\($0.0)〕" }.joined(separator: "\n") + "\n"
+                m += "\n\(title)\(tr("：", ":"))\n" + xs.prefix(10).map {
+                    "- \($0.1.text)" + ($0.1.evidence.isEmpty ? "" : tr("（\($0.1.evidence)）", " (\($0.1.evidence))")) + tr("〔\($0.0)〕", " [\($0.0)]")
+                }.joined(separator: "\n") + "\n"
             }
         }
         return m
@@ -1033,7 +1069,7 @@ func boardHook() {
     if event == "SessionStart" && source == "startup" && seen[key] == ver { return }
     seen[key] = ver
     if let d = try? JSONSerialization.data(withJSONObject: seen) { try? d.write(to: boardSeenURL, options: .atomic) }
-    let note = text + "\n（以上由 AgentDock 自动附加；看板有更新时才会再次出现。）"
+    let note = text + tr("\n（以上由 AgentDock 自动附加；看板有更新时才会再次出现。）", "\n(Added automatically by AgentDock; it shows up again only when the board changes.)")
     let out: [String: Any] = ["hookSpecificOutput": ["hookEventName": event, "additionalContext": note]]
     if let d = try? JSONSerialization.data(withJSONObject: out) { FileHandle.standardOutput.write(d) }
 }
