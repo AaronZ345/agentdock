@@ -392,6 +392,7 @@ struct ProjectBoard: View {
     var body: some View {
         GeometryReader { g in
             ScrollView { content }
+                .onAppear { if demoMode, open.isEmpty, let t = p.tracks.first { open = [t.id] } }
                 .onAppear { width = g.size.width }
                 .onChange(of: g.size.width) { width = $0 }
         }

@@ -2,6 +2,7 @@ import SwiftUI
 
 // 诊断模式：AgentDock --dump-ax <应用路径> <输出文件>，导出那个应用的界面树后退出
 let args = CommandLine.arguments
+if demoMode { headless = true }
 // 钩子：Claude Code / Codex 在你发消息、会话开始时调用，把这条会话所属项目的看板附进去
 if args.contains("--board-hook") { boardHook(); exit(0) }
 if let i = args.firstIndex(of: "--dump-ax"), args.count > i + 2 {
@@ -261,6 +262,15 @@ if args.contains("--test-check") {
 /// 点程序坞图标：窗口被关（藏起来）了就重新打开
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
+        if demoMode, let i = args.firstIndex(of: "--demo-shots"), args.count > i + 1 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                MainActor.assumeIsolated {
+                    if let m = demoModelRef {
+                        runDemoShots(m, out: args[i + 1])
+                    }
+                }
+            }
+        }
         // 窗口收起来后要留在后台继续同步：不让系统把“没有窗口的应用”自动或突然结束掉
         ProcessInfo.processInfo.disableAutomaticTermination("AgentDock 在后台同步会话")
         ProcessInfo.processInfo.disableSuddenTermination()

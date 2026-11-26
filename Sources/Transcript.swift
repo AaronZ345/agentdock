@@ -408,6 +408,7 @@ private func history(_ kind: Kind, _ f: URL) -> [Item] {
 }
 
 func readDetail(_ s: Session) -> Detail {
+    if demoMode { return demoDetail(s) }
     var d = readDetailRaw(s)
     if let since = s.procStart {
         for i in d.tasks.indices where d.tasks[i].status == "running" && (isoDate(d.tasks[i].started) ?? .distantPast) < since {

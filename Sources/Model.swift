@@ -119,6 +119,7 @@ final class Model: ObservableObject {
     }
 
     private func saveSeen() {
+        if demoMode { return }
         let d = seen.mapValues { $0.timeIntervalSince1970 }
         try? JSONSerialization.data(withJSONObject: d).write(to: seenURL)
     }
@@ -190,6 +191,7 @@ final class Model: ObservableObject {
 
     init() {
         chat.model = self
+        if demoMode { demoModelRef = self }
         boards.lookup = { [weak self] id in self?.sessions.first { $0.id == id } }
         boards.allSessions = { [weak self] in self?.sessions ?? [] }
         if let d = try? Data(contentsOf: seenURL), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Double] {
@@ -207,7 +209,7 @@ final class Model: ObservableObject {
             watchers.append(FileWatcher(paths: [r.dir], accept: r.accept) { [weak self] in self?.scheduleRefresh() })
         }
         ClaudeSidebar.shared.onChange = { [weak self] in self?.scheduleRefresh() }
-        ClaudeSidebar.shared.start(claudeApps.map(\.path))
+        if !demoMode { ClaudeSidebar.shared.start(claudeApps.map(\.path)) }
         // 原应用退出：会话都不在跑了，马上刷新
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didTerminateApplicationNotification, object: nil, queue: .main) { [weak self] n in
             let p = (n.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleURL?.path ?? ""
@@ -307,6 +309,7 @@ final class Model: ObservableObject {
     // MARK: 排队
 
     private func saveQueue() {
+        if demoMode { return }
         try? FileManager.default.createDirectory(at: queueURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? JSONEncoder().encode(queue).write(to: queueURL)
     }

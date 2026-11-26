@@ -494,6 +494,7 @@ func scanAntigravity() -> [Session] {
 }
 
 func scanSessions() -> [Session] {
+    if demoMode { return demoSessions() }
     let now = Date()
     return (scanCodex(now: now) + scanClaude(now: now) + scanAntigravity()).sorted { $0.updated > $1.updated }
 }

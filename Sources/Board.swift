@@ -316,6 +316,7 @@ final class BoardStore: ObservableObject {
     static let debounce: TimeInterval = 90
 
     init() {
+        if demoMode { projects = demoProjects(); return }
         if let d = try? Data(contentsOf: boardStateURL), let s = try? JSONDecoder().decode(BoardState.self, from: d) {
             projects = s.projects; cursors = s.cursors; loose = Set(s.loose); pinned = Set(s.pinned); settings = s.settings
         }
@@ -476,6 +477,7 @@ final class BoardStore: ObservableObject {
     // MARK: 存盘
 
     private func save() {
+        if demoMode { return }   // 演示数据不落盘
         let s = BoardState(projects: projects, cursors: cursors, loose: Array(loose), pinned: Array(pinned), settings: settings)
         try? FileManager.default.createDirectory(at: boardStateURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         if let d = try? JSONEncoder().encode(s) { try? d.write(to: boardStateURL, options: .atomic) }
