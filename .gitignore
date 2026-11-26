@@ -1,0 +1,4 @@
+# 编译和打包产物
+build/
+dist/
+.DS_Store

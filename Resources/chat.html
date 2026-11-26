@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data: file:">
+<title>AgentDock</title>
+<style>
+:root {
+  --bg: #faf9f5; --fg: #1f1e1d; --muted: #6b6a66; --faint: #9a9893; --line: #e6e3da;
+  --bubble: #f0eee6; --code: #f3f1ea; --accent: #d97757; --card: #ffffff;
+}
+body[data-kind="codex"] { --accent: #0d0d0d; }
+body[data-kind="antigravity"] { --accent: #4285f4; }
+@media (prefers-color-scheme: dark) {
+  body[data-kind="codex"] { --accent: #f2f2f2; }
+  body[data-kind="antigravity"] { --accent: #8ab4f8; }
+  :root {
+    --bg: #262624; --fg: #ece9e1; --muted: #a8a59c; --faint: #7d7a73; --line: #3a3936;
+    --bubble: #393937; --code: #1f1e1d; --accent: #e08a6b; --card: #30302e;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+body { font: 15px/1.7 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; display: flex; flex-direction: column; }
+header { padding: 14px 28px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+header .t { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header .m { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+header .grow { flex: 1; min-width: 0; }
+.btn { border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: default; }
+.btn:hover { border-color: var(--faint); }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); display: inline-block; }
+.dot.run { background: var(--accent); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+#scroll { flex: 1; overflow-y: auto; }
+#log { max-width: 780px; margin: 0 auto; padding: 24px 28px 32px; }
+.empty { color: var(--faint); text-align: center; margin-top: 30vh; }
+
+.user { display: flex; justify-content: flex-end; margin: 22px 0 18px; }
+
+.asst { margin: 8px 0 14px; word-break: break-word; }
+.asst > :first-child { margin-top: 0; } .asst > :last-child { margin-bottom: 0; }
+.asst h1, .asst h2, .asst h3, .asst h4 { line-height: 1.35; margin: 1.1em 0 .5em; }
+.asst h1 { font-size: 1.35em; } .asst h2 { font-size: 1.2em; } .asst h3 { font-size: 1.05em; } .asst h4 { font-size: 1em; }
+.asst p { margin: .6em 0; }
+.asst ul, .asst ol { padding-left: 1.4em; margin: .5em 0; }
+.asst li { margin: .2em 0; }
+.asst a { color: var(--accent); text-decoration: none; } .asst a:hover { text-decoration: underline; }
+.asst blockquote { margin: .6em 0; padding: 0 0 0 12px; border-left: 3px solid var(--line); color: var(--muted); }
+.asst hr { border: 0; border-top: 1px solid var(--line); margin: 1.2em 0; }
+code { font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+.asst :not(pre) > code { background: var(--code); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; font-size: 12.5px; }
+pre { background: var(--code); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: .7em 0; }
+pre code { font-size: 12.5px; }
+.asst table { border-collapse: collapse; margin: .8em 0; font-size: 14px; display: block; overflow-x: auto; }
+.asst th, .asst td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+.asst th { background: var(--code); font-weight: 600; }
+
+/* 步骤：工具调用和思考 */
+.steps { margin: 6px 0 10px; }
+.step { font-size: 13px; color: var(--muted); }
+.step .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: default; user-select: none; }
+.step .row:hover .sum { color: var(--fg); }
+.step .chev { width: 12px; color: var(--faint); font-size: 10px; transition: transform .15s; flex: none; text-align: center; }
+.step.open .chev { transform: rotate(90deg); }
+.step .name { color: var(--fg); font-weight: 500; flex: none; }
+.step .sum { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.step .body { display: none; margin: 4px 0 8px 20px; }
+.step.open .body { display: block; }
+.step .body .lab { font-size: 11px; color: var(--faint); margin-top: 6px; }
+.step .body pre { max-height: 320px; overflow: auto; margin: 3px 0; white-space: pre-wrap; word-break: break-word; }
+.step.think .sum { font-family: inherit; font-style: italic; }
+.step.think .body .txt { white-space: pre-wrap; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.spin { width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: rot .8s linear infinite; flex: none; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.ghead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); padding: 3px 0; cursor: default; user-select: none; }
+.ghead:hover { color: var(--fg); }
+.ghead .gsum { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ghead .gcount { color: var(--faint); font-size: 12px; flex: none; }
+.steps .ghead .chev { transition: transform .15s; }
+.steps.open > .ghead .chev { transform: rotate(90deg); }
+.note { font-size: 13.5px; color: var(--muted); margin: 6px 0; }
+.note > :first-child { margin-top: 0; } .note > :last-child { margin-bottom: 0; }
+.note p { margin: .3em 0; }
+.gbody { display: none; margin: 2px 0 4px 6px; padding-left: 12px; border-left: 1px solid var(--line); }
+.steps.open > .gbody { display: block; }
+.note.peek { margin-left: 20px; }
+.steps.open > .note.peek { display: none; }
+
+#progress { display: none; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin: 14px 0 4px; }
+#progress.on { display: flex; }
+#progress .star { color: var(--accent); font-size: 16px; display: inline-block; width: 16px; text-align: center; }
+/* Claude：橙色 ✻ 旋转 */
+body[data-kind="claude"] #progress .star::before { content: "✻"; }
+body[data-kind="claude"] #progress .star { animation: rot 2.4s linear infinite; }
+/* Codex：黑白圆环 */
+body[data-kind="codex"] #progress .star::before { content: ""; display: block; width: 12px; height: 12px; margin: 2px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: rot .9s linear infinite; }
+/* Antigravity / Gemini：蓝紫渐变 ✦ 呼吸 */
+body[data-kind="antigravity"] #progress .star::before { content: "✦"; background: linear-gradient(135deg, #4285f4, #9b72cb, #d96570); -webkit-background-clip: text; color: transparent; }
+body[data-kind="antigravity"] #progress .star { animation: breathe 1.6s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(.75); opacity: .55; } }
+#progress .cur { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+
+footer { padding: 0 28px 18px; }
+.composer { max-width: 780px; margin: 0 auto; }
+#notice { font-size: 12px; color: var(--accent); margin: 0 4px 6px; display: none; white-space: pre-wrap; }
+#notice.on { display: block; } #notice.info { color: var(--muted); }
+.box { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px 10px 8px 16px; display: flex; flex-direction: column; gap: 6px; box-shadow: 0 1px 6px rgba(0,0,0,.04); position: relative; }
+.bar { display: flex; align-items: center; gap: 6px; }
+.bar .grow { flex: 1; }
+.atts { display: none; flex-wrap: wrap; gap: 6px; }
+.atts.on { display: flex; }
+.att { display: inline-flex; align-items: center; gap: 6px; background: var(--bubble); border-radius: 8px; padding: 3px 4px 3px 8px; font-size: 12px; max-width: 260px; }
+.att img { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; }
+.att .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.att .x { border: 0; background: transparent; color: var(--muted); font-size: 14px; padding: 0 4px; }
+.box.drag { border-color: var(--accent); }
+.chip { border: 1px solid transparent; background: transparent; color: var(--muted); border-radius: 8px; padding: 3px 8px; font-size: 12px; cursor: default; white-space: nowrap; }
+.chip:hover { background: var(--bubble); color: var(--fg); }
+.chip.on { background: var(--bubble); color: var(--fg); }
+.chip:disabled { opacity: .5; }
+.icon { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font-size: 13px; flex: none; }
+/* 排队中的消息：用户气泡变淡，下面是“立即发送 / 撤回” */
+#queued { max-width: 780px; margin: 0 auto; padding: 0 28px; }
+.qd { display: flex; flex-direction: column; align-items: flex-end; margin: 10px 0 14px; }
+.qd > .b { background: var(--bubble); border: 1px dashed var(--faint); border-radius: 16px; padding: 9px 15px; max-width: 82%; white-space: pre-wrap; word-break: break-word; opacity: .75; }
+.qd .ops { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--faint); margin-top: 5px; }
+.qd .ops button { border: 0; background: transparent; color: var(--muted); font-size: 12px; padding: 0; cursor: default; }
+.qd .ops button:hover { color: var(--accent); }
+.qd .ops button.now { color: var(--accent); }
+.dd { position: absolute; bottom: 44px; left: 8px; min-width: 240px; max-width: 420px; max-height: 360px; overflow-y: auto; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 6px; display: none; z-index: 5; }
+.dd.on { display: block; }
+.dd .it { padding: 7px 10px; border-radius: 8px; font-size: 13px; cursor: default; }
+.dd .it:hover { background: var(--bubble); }
+.dd .it .sub { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.dd .cur { font-size: 11px; color: var(--faint); padding: 4px 10px 6px; }
+.dd .wait { padding: 10px; color: var(--muted); font-size: 13px; }
+
+/* 后台任务 */
+#tasksBtn { display: none; }
+#tasksBtn.run { border-color: var(--accent); color: var(--accent); }
+#tasks { display: none; border-bottom: 1px solid var(--line); padding: 10px 28px; max-height: 40vh; overflow-y: auto; }
+#tasks.on { display: block; }
+.task { margin: 4px 0 10px; font-size: 13px; }
+.task .th { display: flex; align-items: center; gap: 8px; }
+.task .st { font-size: 11px; color: var(--faint); flex: none; }
+.task pre { margin: 4px 0 0 20px; max-height: 160px; overflow: auto; font-size: 11.5px; white-space: pre-wrap; }
+
+/* 时间、日期分隔、改动文件卡片（对齐 Codex 原生） */
+.ts { font-size: 11px; color: var(--faint); margin-top: 4px; }
+.user .wrap { display: flex; flex-direction: column; align-items: flex-end; max-width: 82%; }
+.user .wrap > div:first-child { background: var(--bubble); border-radius: 16px; padding: 9px 15px; white-space: pre-wrap; word-break: break-word; }
+.daysep { display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 11.5px; margin: 26px 0 8px; }
+.daysep::before, .daysep::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.fcard { border: 1px solid var(--line); border-radius: 12px; margin: 10px 0 6px; overflow: hidden; background: var(--card); }
+.fcard .fh { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-size: 13px; cursor: default; }
+.fcard .fh .add, .fcard .f .add { color: #2f9e44; } .fcard .fh .del, .fcard .f .del { color: #e03131; }
+.fcard .fl { border-top: 1px solid var(--line); display: none; }
+.fcard.open .fl { display: block; }
+.fcard .f { display: flex; gap: 8px; padding: 5px 12px; font: 12px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); }
+.fcard .f .p { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcard .f .p .dir { color: var(--faint); }
+.fcard .f:hover { background: var(--bubble); }
+.endmeta { font-size: 11px; color: var(--faint); margin: 2px 0 18px; }
+#newmsg { position: absolute; left: 50%; transform: translateX(-50%); bottom: 150px; display: none; z-index: 4;
+  background: var(--card); color: var(--fg); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 12.5px; box-shadow: var(--shadow); cursor: default; }
+#newmsg.on { display: block; }
+/* Codex 原生样式的“用时”区：过程说明是正文，中间的工具调用合成一行摘要 */
+.steps.cx > .gbody { border-left: 0; padding-left: 0; margin: 6px 0 10px; }
+.cnote { font-size: 15px; line-height: 1.7; margin: 10px 0; }
+.cnote > :first-child { margin-top: 0; } .cnote > :last-child { margin-bottom: 0; } .cnote p { margin: .4em 0; }
+.crun { font-size: 13.5px; color: var(--muted); margin: 4px 0; }
+.crun > .row { display: flex; align-items: center; gap: 8px; padding: 3px 0; cursor: default; user-select: none; }
+.crun > .row:hover .clabel { color: var(--fg); }
+.crun .chev { width: 12px; color: var(--faint); font-size: 10px; transition: transform .15s; text-align: center; }
+.crun.open > .row .chev { transform: rotate(90deg); }
+.crun > .body { display: none; margin: 2px 0 6px 6px; padding-left: 12px; border-left: 1px solid var(--line); }
+.crun.open > .body { display: block; }
+.ccompact { font-size: 12px; color: var(--faint); margin: 8px 0; display: flex; align-items: center; gap: 8px; }
+.ccompact::before, .ccompact::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
+@keyframes flashbg { 0%, 30% { background: color-mix(in srgb, var(--accent) 18%, transparent); } 100% { background: transparent; } }
+.flash { animation: flashbg 2.2s ease-out; border-radius: 10px; }
+@keyframes reveal { from { clip-path: inset(0 0 100% 0); opacity: .35; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+.appear { animation: reveal .6s ease-out; }
+.asst.live .caret { display: inline-block; width: 7px; height: 1.1em; vertical-align: -0.18em; margin-left: 2px; background: var(--accent); border-radius: 1px; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.livethink { font-size: 13px; color: var(--muted); font-style: italic; margin: 8px 0; white-space: pre-wrap; max-height: 5.4em; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 40%); display: flex; flex-direction: column; justify-content: flex-end; }
+/* 批准卡片：输入框上方 */
+#approval { display: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--card)); border-radius: 14px; padding: 10px 14px; margin: 0 0 10px; }
+#approval.on { display: block; }
+#ask { display: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--card)); border-radius: 14px; padding: 10px 14px 12px; margin: 0 0 10px; max-height: 46vh; overflow: auto; }
+#ask.on { display: block; }
+#ask .aq { margin: 4px 0 12px; }
+#ask .ah { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+#ask .chip { font-size: 11px; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
+#ask .qt { font-weight: 600; font-size: 13.5px; line-height: 1.5; }
+#ask .qm { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+#ask .op { display: flex; gap: 9px; align-items: flex-start; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 7px 10px; margin: 5px 0; cursor: pointer; }
+#ask .op:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+#ask .op.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+#ask .mk { flex: none; width: 15px; height: 15px; margin-top: 2px; border: 1.5px solid var(--muted); border-radius: 50%; display: grid; place-items: center; font-size: 10px; color: var(--bg); }
+#ask .multi .mk { border-radius: 4px; }
+#ask .op.on .mk { background: var(--accent); border-color: var(--accent); }
+#ask .ol { font-size: 13px; font-weight: 500; }
+#ask .od { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 1px; }
+#ask .other { width: 100%; box-sizing: border-box; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 13px; margin-top: 5px; }
+#ask .other:focus { outline: none; border-color: var(--accent); }
+#ask .af { display: flex; align-items: center; gap: 10px; }
+#ask .af button { border: 1px solid var(--brand); background: var(--brand); color: var(--bg); border-radius: 9px; padding: 5px 14px; font-size: 13px; }
+#ask .af button:disabled { opacity: .45; }
+#ask .af span { font-size: 12px; color: var(--muted); }
+#approval .at { font-weight: 600; font-size: 13.5px; }
+#approval .ad { font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); margin: 4px 0 8px; white-space: pre-wrap; word-break: break-all; max-height: 7.5em; overflow: auto; }
+#approval .ab { display: flex; gap: 8px; flex-wrap: wrap; }
+#approval .ab button { border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 9px; padding: 5px 12px; font-size: 13px; }
+#approval .ab button.yes { background: var(--brand); border-color: var(--brand); color: var(--bg); }
+/* 一键复制 */
+.msgops { display: flex; gap: 4px; margin-top: 6px; opacity: .0; transition: opacity .15s; }
+.asst:hover .msgops, .asst:last-of-type .msgops, .user:hover .msgops { opacity: 1; }
+.user .msgops { justify-content: flex-end; }
+.op { border: 0; background: transparent; color: var(--faint); font-size: 12px; padding: 3px 7px; border-radius: 7px; cursor: default; }
+.op:hover { background: var(--bubble); color: var(--fg); }
+.asst pre, .step pre { position: relative; }
+.codecopy { position: absolute; top: 6px; right: 6px; border: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 11px; padding: 2px 8px; border-radius: 6px; opacity: 0; transition: opacity .15s; cursor: default; }
+pre:hover .codecopy { opacity: 1; }
+.codecopy:hover { color: var(--fg); }
+.more-top { text-align: center; font-size: 12px; color: var(--muted); padding: 6px 0 18px; cursor: default; }
+.more-top:hover { color: var(--accent); }
+
+/* 任务清单（Claude 的 update_plan / TodoWrite） */
+#plan { max-width: 780px; margin: 0 auto; padding: 0 28px; }
+.plan { border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; margin: 4px 0 14px; background: var(--card); }
+.plan .ph { font-size: 12px; color: var(--faint); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.plan .pi { display: flex; align-items: center; gap: 10px; font-size: 13.5px; padding: 3px 0; }
+.plan .pi .mk { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; }
+.plan .pi.completed { color: var(--faint); }
+.plan .pi.completed span:last-child { text-decoration: line-through; }
+.plan .pi.completed .mk { background: var(--faint); border-color: var(--faint); color: var(--bg); }
+.plan .pi.in_progress { font-weight: 500; }
+.plan .pi.in_progress .mk { border: 2px solid var(--line); border-top-color: var(--accent); animation: rot .8s linear infinite; }
+.plan .pi.stalled .mk { border: 1.5px solid var(--accent); background: linear-gradient(90deg, var(--accent) 50%, transparent 50%); }
+.plan .pi .pst { margin-left: auto; font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+
+/* Claude 每轮结束的“下一步”小框 */
+#suggest { max-width: 780px; margin: 0 auto; padding: 0 28px; }
+.sg { border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; background: var(--card); margin: 4px 0 16px; }
+.sg .recap { font-size: 13.5px; color: var(--muted); }
+.sg .recap p { margin: .2em 0; }
+.sg .ask { font-weight: 600; margin-top: 8px; font-size: 14px; }
+.sg .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.sg .acts button { border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 9px; padding: 5px 12px; font-size: 13px; }
+.sg .acts button:first-child { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.sg .acts button:hover { filter: brightness(1.05); }
+.box:focus-within { border-color: var(--faint); }
+textarea { flex: 1; border: 0; outline: 0; resize: none; background: transparent; color: var(--fg); font: inherit; line-height: 1.55; min-height: 32px; max-height: 220px; padding: 5px 0 4px; width: 100%; }
+#send { width: 32px; height: 32px; border-radius: 10px; border: 0; background: var(--accent); color: var(--bg); font-size: 16px; flex: none; }
+#send:disabled { opacity: .35; }
+.hint { font-size: 11px; color: var(--faint); margin: 6px 6px 0; }
+
+/* ===== 配色和排版：参照 Claude 现在的方案（暖白底、暖灰线、橙色强调；深色是暖炭灰） ===== */
+:root {
+  --bg: #faf9f5; --fg: #141413; --muted: #5e5d59; --faint: #a3a199; --line: #e8e6dc;
+  --bubble: #f0eee6; --code: #f5f4ed; --card: #ffffff; --brand: #c96442; --accent: #d97757;
+  --shadow: 0 1px 2px rgba(20,20,19,.04), 0 4px 18px rgba(20,20,19,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #262624; --fg: #f5f4ee; --muted: #c2c0b6; --faint: #8a8780; --line: #3e3e3a;
+    --bubble: #141413; --code: #1f1e1d; --card: #30302e; --brand: #d97757; --accent: #d97757;
+    --shadow: 0 1px 2px rgba(0,0,0,.2), 0 6px 22px rgba(0,0,0,.25);
+  }
+}
+body[data-kind="codex"] { --accent: #0d0d0d; --brand: #0d0d0d; }
+body[data-kind="antigravity"] { --accent: #4285f4; --brand: #3b78e7; }
+@media (prefers-color-scheme: dark) {
+  body[data-kind="codex"] { --accent: #ececec; --brand: #ececec; }
+  body[data-kind="antigravity"] { --accent: #8ab4f8; --brand: #8ab4f8; }
+}
+body { font: 15.5px/1.7 -apple-system, "PingFang SC", "Helvetica Neue", sans-serif; -webkit-font-smoothing: antialiased; }
+::selection { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--fg) 14%, transparent); border-radius: 10px; border: 3px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+header { padding: 12px 28px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); background: var(--bg); }
+header .t { font-size: 14.5px; letter-spacing: .01em; }
+header .m { font-size: 11.5px; }
+.btn { background: transparent; border-color: var(--line); border-radius: 9px; padding: 5px 11px; color: var(--muted); }
+.btn:hover { background: var(--bubble); border-color: var(--line); color: var(--fg); }
+
+#log, #plan, #queued, #suggest { max-width: 760px; }
+#log { padding: 30px 32px 28px; }
+#plan, #queued, #suggest { padding: 0 32px; }
+.asst { font-size: 16px; line-height: 1.75; letter-spacing: .005em; margin: 10px 0 16px; }
+.asst h1, .asst h2, .asst h3 { font-weight: 600; letter-spacing: .01em; }
+.asst strong { font-weight: 600; }
+.asst :not(pre) > code { border: 0; background: var(--code); color: color-mix(in srgb, var(--fg) 88%, var(--accent)); padding: 2px 6px; border-radius: 6px; }
+.asst pre { border-radius: 12px; border-color: var(--line); padding: 14px 16px; }
+.asst table { border-radius: 10px; }
+.asst th { background: var(--code); }
+.user { margin: 26px 0 20px; }
+.user .wrap > div:first-child { border-radius: 18px; padding: 10px 16px; font-size: 15.5px; line-height: 1.65; }
+
+.ghead { font-size: 13.5px; padding: 4px 0; }
+.ghead .gsum { color: var(--muted); }
+.ghead:hover .gsum { color: var(--fg); }
+.gbody { border-left-color: var(--line); }
+.note { color: var(--muted); }
+
+.plan, .sg, .fcard { border-radius: 14px; border-color: var(--line); box-shadow: none; }
+.sg .acts button { border-radius: 10px; padding: 6px 14px; }
+.sg .acts button:first-child { background: var(--brand); border-color: var(--brand); color: var(--bg); }
+
+footer { padding: 0 32px 18px; background: linear-gradient(to bottom, transparent, var(--bg) 22px); margin-top: -22px; position: relative; padding-top: 22px; }
+.composer { max-width: 760px; }
+.box { border-radius: 20px; border-color: var(--line); box-shadow: var(--shadow); padding: 12px 12px 10px 18px; }
+.box:focus-within { border-color: color-mix(in srgb, var(--faint) 70%, var(--line)); }
+textarea { font-size: 15.5px; }
+textarea::placeholder { color: var(--faint); }
+.chip { border-radius: 999px; padding: 4px 10px; font-size: 12.5px; }
+#send { background: var(--brand); color: var(--bg); border-radius: 10px; }
+.icon { border-radius: 10px; background: transparent; }
+.icon:hover { background: var(--bubble); }
+.hint { text-align: center; font-size: 11px; }
+.dd { border-radius: 14px; border-color: var(--line); box-shadow: var(--shadow); }
+.dd .it { border-radius: 9px; }
+</style>
+</head>
+<body>
+<header id="hdr" style="display:none">
+  <div class="grow">
+    <div class="t" id="title"></div>
+    <div class="m"><span class="dot" id="dot"></span><span id="meta"></span></div>
+  </div>
+  <button class="btn" id="tasksBtn"></button>
+  <button class="btn" id="openApp"></button>
+</header>
+<div id="tasks"></div>
+<div id="scroll"><div id="log"><div class="empty">在左边选一个会话</div></div>
+  <div id="plan"></div>
+  <div id="queued"></div>
+  <div id="suggest"></div>
+  <div style="max-width:780px;margin:0 auto;padding:0 28px 24px"><div id="progress"><span class="star"></span><span id="elapsed"></span><span class="cur" id="cur"></span></div></div>
+</div>
+<div id="newmsg">↓ 有新消息</div>
+<footer id="ftr" style="display:none">
+  <div class="composer">
+    <div id="ask"></div>
+    <div id="approval"></div>
+    <div id="notice"></div>
+    <div class="box">
+      <div class="dd" id="dd"></div>
+      <div class="atts" id="atts"></div>
+      <textarea id="input" rows="1"></textarea>
+      <div class="bar">
+        <button class="chip" id="attach" title="附上文件或图片（也可以直接粘贴或拖进来）">📎</button>
+        <button class="chip" id="chipModel" title="模型和强度"></button>
+        <button class="chip" id="chipPerm" title="权限"></button>
+        <span class="grow"></span>
+        <button class="icon" id="stop" title="停止当前任务" style="display:none">■</button>
+        <button id="send" title="发送">↑</button>
+      </div>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+</footer>
+<script src="marked.umd.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const post = m => window.webkit.messageHandlers.ad.postMessage(m);
+// 诊断：补发的点击记一笔（send-debug.log 里的 “web 补点击”）
+{
+  const tag = el => el && el.nodeType === 1 ? (el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')) : '-';
+  document.addEventListener('click', e => { if (!e.isTrusted) post({ type: 'debug', text: '补点击 ' + tag(e.target) }); }, true);
+}
+// 兜底：页面收到了“按下”，系统也确实松开了，却没有落到同一个元素上的点击 —— 替它在按下的元素上补一次点击。
+// 输入框、文字区域不补（按下已经让它获得焦点）
+const tap = { el: null, at: 0, ok: false };
+const CLICKABLE = 'button, a, #newmsg, #dd [data-i], [data-more], [data-unq], [data-rm], [data-now], [data-copy], [data-ask], [data-approve], [data-act], .ghead, .step .row, .fcard .fh, .crun > .row, .codecopy';
+const clickable = el => el && el.closest ? el.closest(CLICKABLE) : null;
+const lastUp = { el: null, at: 0 };
+document.addEventListener('mouseup', e => { if (e.button === 0) { lastUp.el = clickable(e.target); lastUp.at = Date.now(); } }, true);
+document.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  tap.el = clickable(e.target); tap.at = Date.now(); tap.ok = false;
+  // 输入框有焦点时（中文输入法在处理），系统先把“按下”交给输入法，送到页面时排在了“松开”后面，
+  // 这一下就不会产生点击。刚收到过同一处的“松开”，说明手已经抬起来了：直接替它点一下
+  if (tap.el && lastUp.el === tap.el && Date.now() - lastUp.at < 600) {
+    const el = tap.el;
+    lastUp.el = null;
+    setTimeout(() => { if (tap.el === el && !tap.ok && el.isConnected && !el.disabled) { tap.el = null; el.click(); } }, 30);
+  }
+}, true);
+document.addEventListener('click', e => { if (tap.el && clickable(e.target) === tap.el) tap.ok = true; }, true);
+function nativeUp() {
+  const el = tap.el;
+  if (!el) return;
+  setTimeout(() => {
+    if (tap.el !== el || tap.ok || Date.now() - tap.at > 1500) return;
+    tap.el = null;
+    if (!el.isConnected || el.disabled) return;
+    if (window.getSelection && String(window.getSelection())) return;   // 拖着选了文字，不算点击
+    el.click();
+  }, 80);
+}
+// mcp__服务__工具 这类长名字只留最后一段
+const tname = n => n.startsWith('mcp__') ? n.split('__').pop() : n;
+
+// 对话内容不可信：原始 HTML 一律转义显示，不让它进页面执行
+marked.use({ gfm: true, breaks: true, renderer: { html(t) { return esc(t.raw ?? t.text ?? ''); } } });
+// 渲染过的 Markdown 记下来，刷新时同样的内容不再重新解析
+const mdCache = new Map();
+const md = s => {
+  let h = mdCache.get(s);
+  if (h !== undefined) return h;
+  try { h = marked.parse(s); } catch (e) { h = '<p>' + esc(s) + '</p>'; }
+  if (mdCache.size > 2000) mdCache.clear();
+  mdCache.set(s, h);
+  return h;
+};
+
+const S = { session: null, items: [], json: '', running: false, open: new Set(), groups: new Set(), sending: false,
+            tasks: [], suggestion: null, plan: [], menuOpen: null, att: [], queued: [], gstate: {} };
+
+function stepHTML(it, live) {
+  if (it.kind === 'note') return `<div class="note">${md(it.text)}</div>`;
+  if (it.kind === 'thinking') {
+    const open = S.open.has(it.id) ? ' open' : '';
+    return `<div class="step think${open}" data-id="${esc(it.id)}"><div class="row"><span class="chev">▶</span><span class="name">思考</span><span class="sum">${esc(it.text.split('\n')[0].slice(0, 140))}</span></div>
+      <div class="body"><div class="txt">${esc(it.text)}</div></div></div>`;
+  }
+  const open = S.open.has(it.id) ? ' open' : '';
+  const icon = (live && !it.done) ? '<span class="spin"></span>' : '<span class="chev">▶</span>';
+  return `<div class="step${open}" data-id="${esc(it.id)}"><div class="row">${icon}<span class="name">${esc(it.verb || tname(it.name))}</span><span class="sum">${esc(it.summary)}</span></div>
+    <div class="body">${it.input ? `<div class="lab">输入</div><pre><code>${esc(it.input)}</code></pre>` : ''}
+    ${it.output ? `<div class="lab">输出</div><pre><code>${esc(it.output)}</code></pre>` : (it.done ? '' : '<div class="lab">等待结果…</div>')}</div></div>`;
+}
+
+// 连续的工具调用和思考归成一组，默认折叠成一行摘要（参照 Claude）；在跑的最后一组摘要显示当前步骤
+function dur(ms) {
+  const s = Math.round(ms / 1000);
+  return s < 60 ? `${s} 秒` : s < 3600 ? `${Math.floor(s / 60)} 分 ${s % 60} 秒` : `${Math.floor(s / 3600)} 小时 ${Math.floor(s % 3600 / 60)} 分`;
+}
+
+function groupSummary(g) {
+  const steps = g.filter(it => it.kind !== 'note');
+  const counts = new Map();
+  steps.forEach(it => { const n = it.kind === 'thinking' ? '思考' : (it.verb || tname(it.name)); counts.set(n, (counts.get(n) || 0) + 1); });
+  const parts = [...counts].map(([n, c]) => c > 1 ? `${n} ×${c}` : n);
+  const t0 = Date.parse(g[0].ts), t1 = Date.parse(g[g.length - 1].ts);
+  const took = t1 - t0 >= 1000 ? `已处理 ${dur(t1 - t0)} · ` : '';
+  return `${took}${steps.length} 个步骤${parts.length ? ' · ' + parts.slice(0, 5).join('、') + (parts.length > 5 ? ' 等' : '') : ''}`;
+}
+
+// Codex：一行“用时 X”（在跑时是“正在处理”，默认展开），展开后过程说明是正文，
+// 两段说明之间的工具调用合成一行“已读取文件 运行了命令”，再点开才是每一步
+const PHRASE = {
+  read: ['已读取文件', '读取文件'], search: ['已搜索', '搜索'], list: ['已浏览文件', '浏览文件'],
+  cmd: ['运行了命令', '运行了命令'], edit: ['已编辑文件', '编辑文件'], wait: ['已等待', '等待'],
+};
+function runHTML(run, live) {
+  const order = [], mcp = [];
+  run.forEach(it => {
+    const c = it.cat || 'cmd';
+    if (c === 'mcp' && it.summary && !mcp.includes(it.summary)) mcp.push(it.summary);
+    if (!order.includes(c)) order.push(c);
+  });
+  const label = order.map((c, i) => c === 'mcp' ? (i ? '使用 ' : '已使用 ') + (mcp.join('和') || '集成')
+    : (PHRASE[c] || [c, c])[i ? 1 : 0]).join(' ');
+  const id = 'r:' + run[0].id, running = live && run.some(it => !it.done);
+  return `<div class="crun${S.open.has(id) ? ' open' : ''}" data-id="${esc(id)}"><div class="row">${running ? '<span class="spin"></span>' : '<span class="chev">▶</span>'}<span class="clabel">${esc(label)}</span></div>
+    <div class="body">${run.map(it => stepHTML(it, live)).join('')}</div></div>`;
+}
+function codexGroupHTML(g, isLast, tookMs) {
+  const key = g[0].id, live = isLast && S.running;
+  // 在跑的那一轮默认展开；手动点过就按点过的来
+  const open = S.gstate[key] ?? live;
+  const segs = [];
+  let run = [];
+  const flush = () => { if (run.length) segs.push(runHTML(run, live)); run = []; };
+  g.forEach(it => {
+    if (it.kind === 'thinking') return;
+    if (it.kind === 'note') { flush(); segs.push(`<div class="cnote">${md(it.text)}</div>`); return; }
+    if (it.kind === 'compact') { flush(); segs.push('<div class="ccompact">上下文已自动压缩</div>'); return; }
+    run.push(it);
+  });
+  flush();
+  const head = live ? '<span class="spin"></span><span class="gsum">正在处理…</span>'
+    : `<span class="chev">▶</span><span class="gsum">用时 ${took(tookMs || Math.max(1000, Date.parse(g[g.length - 1].ts) - Date.parse(g[0].ts)))}</span>`;
+  return `<div class="steps cx${open ? ' open' : ''}" data-cx="${esc(key)}" data-k="${esc(key)}"><div class="ghead">${head}</div><div class="gbody">${segs.join('')}</div></div>`;
+}
+
+function groupHTML(g, isLast, tookMs) {
+  if (S.session && S.session.kind === 'codex') return codexGroupHTML(g, isLast, tookMs);
+  const key = g[0].id, live = isLast && S.running;
+  const open = S.groups.has(key) ? ' open' : '';
+  const cur = g[g.length - 1];
+  const curText = cur.kind === 'thinking' ? '思考中…' : cur.kind === 'note' ? cur.text.split('\n')[0] : `${cur.verb || tname(cur.name)}  ${cur.summary}`;
+  const head = live
+    ? `<span class="spin"></span><span class="gsum">${esc(curText)}</span><span class="gcount">${g.filter(it => it.kind !== 'note').length} 个步骤</span>`
+    : `<span class="chev">▶</span><span class="gsum">${esc(S.session && S.session.kind === 'codex' && tookMs ? `用时 ${took(tookMs)}` : groupSummary(g))}</span>`;
+  // 在跑的时候把最新一条过程说明露在外面，不展开也知道在做什么
+  const lastNote = live ? [...g].reverse().find(it => it.kind === 'note') : null;
+  const peek = lastNote ? `<div class="note peek">${md(lastNote.text)}</div>` : '';
+  return `<div class="steps${open}" data-group="${esc(key)}" data-k="${esc(key)}"><div class="ghead">${head}</div>${peek}
+    <div class="gbody">${g.map(it => stepHTML(it, live)).join('')}</div></div>`;
+}
+
+// ---------- 时间：一律按北京时间显示 ----------
+const WEEK = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+const BJ = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' });
+const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+function bj(d) {
+  const p = Object.fromEntries(BJ.formatToParts(d).map(x => [x.type, x.value]));
+  return { y: +p.year, m: +p.month, d: +p.day, hm: `${p.hour}:${p.minute}`, wd: WD[p.weekday], key: `${p.year}-${p.month}-${p.day}` };
+}
+function clock(ts) {
+  if (!ts) return '';
+  const t = new Date(ts), d = bj(t), now = new Date();
+  if (d.key === bj(now).key) return d.hm;
+  if (now - t < 6 * 864e5) return WEEK[d.wd] + d.hm;
+  return `${d.m}月${d.d}日 ${d.hm}`;
+}
+let lastDay = '';
+function daySep(ts) {
+  if (!ts) return '';
+  const d = bj(new Date(ts));
+  if (d.key === lastDay) return '';
+  const first = !lastDay;
+  lastDay = d.key;
+  if (first) return '';
+  const now = new Date();
+  return (d.key === bj(now).key ? '今天' : d.key === bj(new Date(now - 864e5)).key ? '昨天' : `${d.m}月${d.d}日`) + ' ' + d.hm;
+}
+function took(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), h = Math.floor(m / 60);
+  return h ? `${h}h ${m % 60}m ${s % 60}s` : `${m}m ${s % 60}s`;
+}
+function turnEndHTML(it) {
+  let h = '';
+  if (it.files && it.files.length) {
+    const add = it.files.reduce((a, f) => a + f.add, 0), del = it.files.reduce((a, f) => a + f.del, 0);
+    const open = S.open.has(it.id) ? ' open' : '';
+    h += `<div class="fcard${open}" data-fc="${esc(it.id)}"><div class="fh"><span>已编辑 ${it.files.length} 个文件</span><span class="add">+${add}</span><span class="del">-${del}</span></div>
+      <div class="fl">${it.files.map(f => `<div class="f" title="${esc(f.path)}"><span class="p"><span class="dir">${esc(f.path.split('/').slice(-3, -1).join('/'))}/</span>${esc(f.path.split('/').pop())}</span>${f.kind === 'add' ? '<span>新建</span>' : f.kind === 'delete' ? '<span>删除</span>' : ''}<span class="add">+${f.add}</span><span class="del">-${f.del}</span></div>`).join('')}</div></div>`;
+  }
+  return h + `<div class="endmeta">${esc(clock(it.ts))}</div>`;
+}
+
+/// 视野里第一块（用户消息、回复、步骤组）和它离视野顶部的距离
+function anchor() {
+  const sc = $('scroll'), top = sc.getBoundingClientRect().top;
+  for (const el of $('log').querySelectorAll(':scope > [data-k]')) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > top + 1) return { k: el.dataset.k, off: r.top - top };
+  }
+  return null;
+}
+function restore(a) {
+  if (!a) return;
+  const el = $('log').querySelector(`:scope > [data-k="${CSS.escape(a.k)}"]`);
+  if (!el) return;
+  const sc = $('scroll');
+  sc.scrollTop += (el.getBoundingClientRect().top - sc.getBoundingClientRect().top) - a.off;
+}
+
+// 按住鼠标的这一小段时间里先不刷新页面，松开（点击已经生效）后再补上，免得点到一半按钮被换掉。
+// 按住超过 1.5 秒（多半是在拖选文字）就不再等
+const press = { down: false, since: 0, todo: [] };
+function pressEnd() {
+  if (!press.down) return;
+  press.down = false;
+  setTimeout(() => { for (const f of press.todo.splice(0)) f(); }, 0);
+}
+document.addEventListener('mousedown', () => { press.down = true; press.since = Date.now(); }, true);
+document.addEventListener('mouseup', pressEnd, true);
+document.addEventListener('mousemove', e => { if (press.down && !e.buttons) pressEnd(); }, true);
+window.addEventListener('blur', pressEnd);
+function later(key, f) {
+  if (!press.down || Date.now() - press.since > 1500) return false;
+  press.todo = press.todo.filter(x => x.key !== key);
+  f.key = key; press.todo.push(f);
+  return true;
+}
+
+// 只改真正变了的地方：整块重写会把你按下鼠标那一刻的按钮换成新的，这一下点击就丢了（要点第二下）
+function setHTML(el, html) {
+  if (el._h === html) return false;
+  el._h = html; el.innerHTML = html;
+  return true;
+}
+// 消息区按块对比：每块记着生成它的 HTML，没变的原样留着，只替换、增删变了的块
+function patchBlocks(box, blocks) {
+  if (box._h !== undefined) { box._h = undefined; box.innerHTML = ''; }
+  const kids = box.children;
+  for (let i = 0; i < blocks.length; i++) {
+    const old = kids[i];
+    if (old && old._b === blocks[i]) continue;
+    const t = document.createElement('template');
+    t.innerHTML = blocks[i];
+    let n = t.content.firstElementChild;
+    if (t.content.childElementCount !== 1 || !n) { n = document.createElement('div'); n.style.display = 'contents'; n.append(t.content); }
+    n._b = blocks[i];
+    if (old) box.replaceChild(n, old); else box.appendChild(n);
+  }
+  while (kids.length > blocks.length) box.lastElementChild.remove();
+}
+
+function render() {
+  if (later('render', render)) return;
+  lastDay = '';
+  const sc = $('scroll');
+  const nearBottom = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80;
+  const keep = nearBottom ? null : anchor();
+  const out = [];
+  let g = [];
+  // 一组步骤之后、下一条用户消息之前的 turnend 里记着这一轮用时
+  const tookAfter = i => { for (let j = i; j < S.items.length && S.items[j].kind !== 'user'; j++) if (S.items[j].kind === 'turnend') return S.items[j].took; return 0; };
+  const flush = (last, i) => { if (g.length) out.push(groupHTML(g, last, tookAfter(i ?? S.items.length))); g = []; };
+  S.items.forEach((it, i) => {
+    if (it.kind === 'tool' || it.kind === 'thinking' || it.kind === 'note' || it.kind === 'compact') { g.push(it); return; }
+    flush(false, i);
+    if (it.kind === 'user') {
+      const d = daySep(it.ts);
+      if (d) out.push(`<div class="daysep">${esc(d)}</div>`);
+      out.push(`<div class="user" data-k="${esc(it.id)}"><div class="wrap"><div>${esc(it.text.trim())}</div><div class="ts">${esc(clock(it.ts))}</div><div class="msgops"><button class="op" data-copy="${esc(it.id)}">复制</button></div></div></div>`);
+    }
+    else if (it.kind === 'turnend') out.push(turnEndHTML(it));
+    // 更早的轮次只留了“用时”，步骤没有载入
+    else if (it.kind === 'worked') out.push(`<div class="steps" data-k="${esc(it.id)}"><div class="ghead" title="更早轮次的步骤没有载入"><span class="chev" style="opacity:.35">▶</span><span class="gsum">用时 ${esc(took(it.took))}</span></div></div>`);
+    else out.push(`<div class="asst" data-k="${esc(it.id)}">${md(it.text)}<div class="msgops"><button class="op" data-copy="${esc(it.id)}">复制</button></div></div>`);
+  });
+  flush(true);
+  const empty = S.session && S.session.draft
+    ? `<div class="empty">在 ${esc(S.session.app)} 的「${esc(S.session.project)}」目录里新建会话<br>写下第一条消息就会开始</div>`
+    : '<div class="empty">这个会话还没有可显示的内容</div>';
+  const more = S.hidden ? `<div class="more-top" data-more="1">还有 ${S.hidden} 条更早的消息，点这里显示</div>` : '';
+  // Antigravity 正在生成、还没写进记录的那段：末尾显示，带闪烁光标
+  if (S.live && S.running) {
+    if (S.live.thinking && !S.live.text) out.push(`<div class="livethink" data-k="live-think">${esc(S.live.thinking.slice(-600))}</div>`);
+    if (S.live.text) out.push(`<div class="asst live" data-k="live">${md(S.live.text).replace(/<\/(p|li|h\d|pre)>\s*$/, '<span class="caret"></span></$1>')}</div>`);
+  }
+  patchBlocks($('log'), out.length ? (more ? [more, ...out] : out) : [empty]);
+  for (const pre of $('log').querySelectorAll('pre')) {
+    if (!pre.querySelector('.codecopy')) pre.insertAdjacentHTML('beforeend', '<button class="codecopy">复制</button>');
+  }
+  // 这次才出现的回复、说明：由上往下展开，不整块闪出来（第一次打开会话不做）
+  if (S.seen) {
+    for (const el of $('log').querySelectorAll('.asst[data-k], .cnote, .user[data-k]')) {
+      const k = el.dataset.k || el.textContent.slice(0, 40);
+      if (!S.seen.has(k)) el.classList.add('appear');
+    }
+  }
+  S.seen = new Set([...$('log').querySelectorAll('.asst[data-k], .cnote, .user[data-k]')].map(el => el.dataset.k || el.textContent.slice(0, 40)));
+  renderPlan();
+  renderSuggestion();
+  updateProgress();
+  if (nearBottom) sc.scrollTop = sc.scrollHeight;
+  else {
+    // 不在底部：保持你正在看的那一块不动（上面被挤掉、收起的内容不会把视野带跑）
+    restore(keep);
+    const lastId = S.items.length ? S.items[S.items.length - 1].id : '';
+    if (S.lastId && lastId !== S.lastId) $('newmsg').classList.add('on');
+  }
+  S.lastId = S.items.length ? S.items[S.items.length - 1].id : '';
+}
+$('newmsg').addEventListener('click', () => { $('scroll').scrollTop = $('scroll').scrollHeight; $('newmsg').classList.remove('on'); });
+$('scroll').addEventListener('scroll', () => {
+  const sc = $('scroll');
+  if (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80) $('newmsg').classList.remove('on');
+});
+
+function lastUserTs() {
+  for (let i = S.items.length - 1; i >= 0; i--) if (S.items[i].kind === 'user' && S.items[i].ts) return Date.parse(S.items[i].ts);
+  return null;
+}
+
+function updateProgress() {
+  const p = $('progress');
+  p.classList.toggle('on', S.running);
+  if (!S.running) return;
+  const since = lastUserTs();
+  if (since) {
+    const s = Math.max(0, Math.floor((Date.now() - since) / 1000));
+    $('elapsed').textContent = `正在运行 · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  } else $('elapsed').textContent = '正在运行';
+  const last = S.items[S.items.length - 1];
+  let cur = '';
+  if (last && last.kind === 'tool') cur = last.done ? '正在思考…' : `${last.verb || tname(last.name)}  ${last.summary}`;
+  else if (last && (last.kind === 'user' || last.kind === 'turnend')) cur = '正在思考…';
+  else if (last && last.kind === 'thinking') cur = '思考中…';
+  else if (last && last.kind === 'note') cur = last.text.split('\n')[0];
+  $('cur').textContent = cur;
+}
+// “正在运行 · 分:秒”要每秒走一格；只在跑的时候走，停了就不再定时
+let progTimer = null;
+const tickProgress = () => {
+  if (S.running && !progTimer) progTimer = setInterval(updateProgress, 1000);
+  else if (!S.running && progTimer) { clearInterval(progTimer); progTimer = null; }
+};
+
+function copied(btn) {
+  const old = btn.textContent;
+  btn.textContent = '已复制 ✓';
+  setTimeout(() => { btn.textContent = old; }, 1400);
+}
+document.addEventListener('click', e => {
+  const ap = e.target.closest('[data-approve]');
+  if (ap) { $('approval').querySelectorAll('button').forEach(b => b.disabled = true); post({ type: 'approve', index: +ap.dataset.approve }); return; }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) {
+    const it = S.items.find(x => x.id === cp.dataset.copy);
+    if (it) { post({ type: 'copy', text: it.text.trim() }); copied(cp); }
+    return;
+  }
+  const cc = e.target.closest('.codecopy');
+  if (cc) {
+    const code = cc.parentElement.querySelector('code') || cc.parentElement;
+    post({ type: 'copy', text: code.innerText.replace(/\n?复制$/, '') });
+    copied(cc);
+    return;
+  }
+  if (e.target.closest('[data-more]')) { e.target.closest('[data-more]').textContent = '加载中…'; post({ type: 'more' }); return; }
+  const fc = e.target.closest('.fcard .fh');
+  if (fc) { const c = fc.parentElement, id = c.dataset.fc; c.classList.toggle('open'); c.classList.contains('open') ? S.open.add(id) : S.open.delete(id); return; }
+  const cx = e.target.closest('.steps.cx > .ghead');
+  if (cx) { const st = cx.parentElement; st.classList.toggle('open'); S.gstate[st.dataset.cx] = st.classList.contains('open'); return; }
+  const cr = e.target.closest('.crun > .row');
+  if (cr) { const c = cr.parentElement, id = c.dataset.id; c.classList.toggle('open'); c.classList.contains('open') ? S.open.add(id) : S.open.delete(id); return; }
+  const gh = e.target.closest('.ghead');
+  if (gh) { const st = gh.parentElement, k = st.dataset.group; st.classList.toggle('open'); st.classList.contains('open') ? S.groups.add(k) : S.groups.delete(k); return; }
+  const row = e.target.closest('.step .row');
+  if (row) { const st = row.parentElement, id = st.dataset.id; st.classList.toggle('open'); st.classList.contains('open') ? S.open.add(id) : S.open.delete(id); }
+});
+
+const input = $('input');
+function autosize() { input.style.height = 'auto'; input.style.height = Math.max(32, Math.min(input.scrollHeight, 220)) + 'px'; $('send').disabled = S.sending || (!input.value.trim() && !(S.att && S.att.length)); }
+input.addEventListener('input', autosize);
+input.addEventListener('keydown', e => {
+  // 输入法组字时的回车是确认候选词，不发送
+  if (e.key === 'Enter' && !e.shiftKey && !e.altKey && !e.isComposing && e.keyCode !== 229) {
+    e.preventDefault();
+    send();
+  }
+});
+$('send').addEventListener('click', send);
+$('openApp').addEventListener('click', () => post({ type: 'open' }));
+
+function send() {
+  const text = input.value.trim();
+  if ((!text && !S.att.length) || S.sending) return;
+  S.sending = true; input.disabled = true; autosize();
+  const willQueue = S.running || S.queued.length;
+  notice(willQueue ? '' : S.session.draft ? '正在新建会话…' : '发送中…', true);
+  post({ type: 'send', text, files: S.att.map(f => f.path) });
+}
+
+// ---------- 排队中的消息 ----------
+function renderQueued() {
+  const q = S.queued;
+  setHTML($('queued'), q.map((m, i) => `<div class="qd"><div class="b">${esc(m.text)}</div>
+    <div class="ops">${m.sending ? '<span class="spin"></span><span>发送中…</span>'
+      : `<span>${i === 0 && !S.running ? '马上发出' : `排队中 · 第 ${i + 1} 条`}</span>
+         <button class="now" data-now="${esc(m.id)}" title="不等当前任务结束，现在就发过去引导它">立即发送</button>
+         <button data-unq="${esc(m.id)}">撤回</button>`}</div></div>`).join(''));
+}
+document.addEventListener('click', e => {
+  const n = e.target.closest('[data-now]');
+  if (n) { notice('正在立即发送…', true); post({ type: 'sendNow', qid: n.dataset.now }); return; }
+  const u = e.target.closest('[data-unq]');
+  if (u) {
+    // 撤回的内容放回输入框，方便改了再发
+    const m = S.queued.find(x => x.id === u.dataset.unq);
+    if (m && !input.value) { input.value = m.text; autosize(); }
+    post({ type: 'unqueue', qid: u.dataset.unq });
+  }
+});
+
+function notice(text, info) {
+  const n = $('notice');
+  n.textContent = text || '';
+  n.classList.toggle('on', !!text);
+  n.classList.toggle('info', !!info);
+}
+
+// ---------- 任务清单 ----------
+function renderPlan() {
+  const p = S.plan || [];
+  const done = p.filter(x => x.status === 'completed').length;
+  // 会话已经停了、清单里还有“进行中”的步骤（这一轮没收尾就结束了）：不再转圈，标成“停在这一步”
+  const stalled = !S.running && p.some(x => x.status === 'in_progress');
+  const st = x => x.status === 'in_progress' && stalled ? 'stalled' : x.status;
+  setHTML($('plan'), p.length ? `<div class="plan"><div class="ph"><span>任务清单${stalled ? ' · 这一轮没做完就停了' : ''}</span><span>${done}/${p.length}</span></div>
+    ${p.map(x => `<div class="pi ${esc(st(x))}"><span class="mk">${x.status === 'completed' ? '✓' : ''}</span><span>${esc(x.content)}</span>${st(x) === 'stalled' ? '<span class="pst">停在这一步</span>' : ''}</div>`).join('')}</div>` : '');
+}
+
+// ---------- 后台任务 ----------
+const taskIcon = st => st === 'running' ? '<span class="spin"></span>' : st === 'completed' ? '✓' : st === 'failed' ? '✗' : '■';
+const taskZh = { running: '运行中', completed: '已完成', failed: '失败', killed: '已停止', expired: '已到期' };
+function renderTasks() {
+  const b = $('tasksBtn'), n = S.tasks.length, run = S.tasks.filter(t => t.status === 'running').length;
+  b.style.display = n ? '' : 'none';
+  b.textContent = run ? `后台任务 ${run} 个运行中` : `后台任务 ${n}`;
+  b.classList.toggle('run', run > 0);
+  setHTML($('tasks'), S.tasks.map(t => `<div class="task"><div class="th">${taskIcon(t.status)}<span>${esc(t.desc || t.summary || t.id)}</span><span class="st">${taskZh[t.status] || t.status || ''}</span></div>
+    ${t.output ? `<pre><code>${esc(t.output)}</code></pre>` : ''}</div>`).join(''));
+}
+$('tasksBtn').addEventListener('click', () => $('tasks').classList.toggle('on'));
+
+// ---------- 问题卡片（Claude 的 AskUserQuestion）：选好后由 AgentDock 在原应用里逐题点选、提交 ----------
+// 每组问题选了什么按问题 id 记着：切到别的会话再切回来，已经选的、写的都还在
+const askMemo = {};
+function renderAsk(a) {
+  const box = $('ask');
+  if (!a || !a.questions || !a.questions.length) { S.ask = null; box.classList.remove('on'); box.innerHTML = ''; return; }
+  if (S.ask && S.ask.id === a.id) return;   // 同一组问题：保留你已经选的
+  const m = askMemo[a.id];
+  S.ask = askMemo[a.id] = { id: a.id, qs: a.questions, picks: m ? m.picks : a.questions.map(() => []), other: m ? m.other : a.questions.map(() => ''), busy: false };
+  box.innerHTML = `<div class="at" style="font-weight:600;font-size:13.5px;margin-bottom:6px">❓ Claude 在等你回答</div>` +
+    a.questions.map((q, i) => `<div class="aq ${q.multiSelect ? 'multi' : ''}" data-q="${i}">
+      <div class="ah">${q.header ? `<span class="chip">${esc(q.header)}</span>` : ''}<span class="qt">${esc(q.question)}</span>${q.multiSelect ? '<span class="qm">可多选</span>' : ''}</div>
+      ${q.options.map((o, j) => `<div class="op" data-ask="${i}:${j}"><span class="mk"></span><div><div class="ol">${esc(o.label)}</div>${o.description ? `<div class="od">${esc(o.description)}</div>` : ''}</div></div>`).join('')}
+      <input class="other" data-other="${i}" placeholder="其他 / 补充说明（可以和选项一起提交）" value="${esc(S.ask.other[i])}">
+    </div>`).join('') +
+    `<div class="af"><button id="askGo" disabled>提交</button><span id="askHint">每题选一项，或在“其他”里写</span></div>`;
+  box.classList.add('on');
+  askUpdate();
+}
+// 这道题最后提交什么：多选是勾的选项加“其他”。单选在原应用里选项和“其他”只能二选一，
+// 两边都有时用“其他”提交“选项；补充的话”，两样 Claude 都能收到
+const askAnswer = (A, i) => {
+  const t = A.other[i].trim();
+  if (A.qs[i].multiSelect || !t || !A.picks[i].length) return { labels: t && !A.qs[i].multiSelect ? [] : A.picks[i], other: t };
+  return { labels: [], other: `${A.picks[i][0]}；${t}` };
+};
+function askUpdate() {
+  const A = S.ask; if (!A) return;
+  $('ask').querySelectorAll('.op').forEach(el => {
+    const [i, j] = el.dataset.ask.split(':').map(Number);
+    el.classList.toggle('on', A.picks[i].includes(A.qs[i].options[j].label));
+    el.querySelector('.mk').textContent = el.classList.contains('on') ? '✓' : '';
+  });
+  const ok = A.qs.every((q, i) => { const x = askAnswer(A, i); return x.labels.length || x.other; });
+  $('askGo').disabled = !ok || A.busy;
+  const both = A.qs.some((q, i) => !q.multiSelect && A.picks[i].length && A.other[i].trim());
+  $('askHint').textContent = A.busy ? '正在原应用里提交…' : !ok ? '每题选一项，或在“其他”里写'
+    : both ? '选项和补充的话会一起提交（单选题会写成“选项；补充的话”）' : '会在原应用里替你逐题选好并提交';
+}
+document.addEventListener('click', e => {
+  const op = e.target.closest('[data-ask]');
+  if (op && S.ask && !S.ask.busy) {
+    const [i, j] = op.dataset.ask.split(':').map(Number);
+    const A = S.ask, q = A.qs[i], l = q.options[j].label;
+    if (q.multiSelect) A.picks[i] = A.picks[i].includes(l) ? A.picks[i].filter(x => x !== l) : [...A.picks[i], l];
+    else A.picks[i] = [l];   // 单选：点哪个就是哪个，再点一次也不取消（和原应用一样）；“其他”里写的字不动
+    askUpdate();
+    return;
+  }
+  if (e.target.id === 'askGo' && S.ask && !S.ask.busy) {
+    const A = S.ask; A.busy = true; askUpdate();
+    post({ type: 'answer', id: A.id, answers: A.qs.map((q, i) => askAnswer(A, i)) });
+  }
+});
+document.addEventListener('input', e => {
+  const i = e.target.dataset && e.target.dataset.other;
+  if (i === undefined || !S.ask) return;
+  const A = S.ask; A.other[+i] = e.target.value;
+  askUpdate();
+});
+
+// ---------- 下一步建议（Claude 每轮结束的小框） ----------
+function renderSuggestion() {
+  const g = S.suggestion;
+  const show = g && !S.running && (g.ask || g.actions.length);
+  setHTML($('suggest'), show ? `<div class="sg">${g.recap ? `<div class="recap">${md(g.recap)}</div>` : ''}
+    ${g.ask ? `<div class="ask">${esc(g.ask)}</div>` : ''}
+    ${g.actions.length ? `<div class="acts">${g.actions.map((a, i) => `<button data-act="${i}">${esc(a)}</button>`).join('')}</div>` : ''}</div>` : '');
+  input.placeholder = show && g.actions.length ? `按 Tab 填入：${g.actions[0]}` : placeholder();
+}
+function placeholder() { return S.session ? (S.session.draft ? '写下第一条消息…' : `回复 ${S.session.app}…`) : ''; }
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b || !S.suggestion) return;
+  input.value = S.suggestion.actions[+b.dataset.act];
+  send();
+});
+
+// ---------- 模型 / 权限下拉：选项从原应用里实时读 ----------
+function chipText(c) { return c === 'model' ? (S.session.model || '模型') : (S.session.perm || '权限'); }
+function renderChips() {
+  const s = S.session, ok = s && s.canChip;
+  $('chipModel').style.display = ok ? '' : 'none';
+  $('chipPerm').style.display = ok ? '' : 'none';
+  if (!ok) return;
+  $('chipModel').textContent = chipText('model') + ' ▾';
+  $('chipPerm').textContent = chipText('perm') + ' ▾';
+}
+function openMenu(chip) {
+  if (S.menuOpen) { closeMenu(); return; }
+  S.menuOpen = chip;
+  $('chip' + (chip === 'model' ? 'Model' : 'Perm')).classList.add('on');
+  const dd = $('dd');
+  dd.innerHTML = `<div class="wait">正在读取 ${esc(S.session.app)} 的选项…</div>`;
+  dd.classList.add('on');
+  post({ type: 'chip', chip });
+}
+function closeMenu(silent) {
+  if (!S.menuOpen) return;
+  S.menuOpen = null;
+  $('dd').classList.remove('on');
+  $('chipModel').classList.remove('on'); $('chipPerm').classList.remove('on');
+  if (!silent) post({ type: 'closeMenu' });
+}
+$('chipModel').addEventListener('click', e => { e.stopPropagation(); openMenu('model'); });
+$('chipPerm').addEventListener('click', e => { e.stopPropagation(); openMenu('perm'); });
+$('dd').addEventListener('click', e => {
+  e.stopPropagation();
+  const it = e.target.closest('[data-i]');
+  if (!it) return;
+  $('dd').innerHTML = '<div class="wait">正在切换…</div>';
+  post({ type: 'choose', index: +it.dataset.i });
+});
+document.addEventListener('click', e => { if (S.menuOpen && !e.target.closest('#dd')) closeMenu(); });
+
+// ---------- 附件 ----------
+const isImg = n => /\.(png|jpe?g|gif|webp|heic|bmp)$/i.test(n);
+function renderAtts() {
+  const a = $('atts');
+  a.classList.toggle('on', S.att.length > 0);
+  a.innerHTML = S.att.map((f, i) => `<span class="att">${f.thumb ? `<img src="${f.thumb}">` : (isImg(f.name) ? '🖼' : '📄')}<span class="nm" title="${esc(f.path)}">${esc(f.name)}</span><button class="x" data-rm="${i}">×</button></span>`).join('');
+  autosize();
+}
+$('atts').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if (b) { S.att.splice(+b.dataset.rm, 1); renderAtts(); } });
+// 系统选文件界面第一次打开要起服务，会慢一点：先让按钮立刻有反应
+$('attach').addEventListener('click', () => {
+  const b = $('attach');
+  if (b.dataset.busy) return;
+  b.dataset.busy = '1'; b.textContent = '…'; b.title = '正在打开选文件窗口…';
+  post({ type: 'pick' });
+});
+// 粘贴、拖进来的文件：读成数据交给 Swift 存到本地，换回路径
+const pendingThumbs = [];
+function takeFiles(files) {
+  for (const f of files) {
+    const r = new FileReader();
+    r.onload = () => {
+      const img = isImg(f.name) || f.type.startsWith('image/');
+      if (img) pendingThumbs.push(r.result);
+      post({ type: 'saveBlob', name: f.name || 'pasted.png', data: r.result, thumb: img });
+    };
+    r.readAsDataURL(f);
+  }
+}
+input.addEventListener('paste', e => {
+  const files = [...(e.clipboardData?.files || [])];
+  if (files.length) { e.preventDefault(); takeFiles(files); }
+});
+const box = document.querySelector('.box');
+box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('drag'); });
+box.addEventListener('dragleave', () => box.classList.remove('drag'));
+box.addEventListener('drop', e => { e.preventDefault(); box.classList.remove('drag'); takeFiles([...e.dataTransfer.files]); });
+
+// ---------- 停止、排队 ----------
+$('stop').addEventListener('click', () => { notice('正在停止…', true); post({ type: 'stop' }); });
+function renderButtons() {
+  const s = S.session;
+  $('stop').style.display = s && !s.draft && s.running ? '' : 'none';
+}
+input.addEventListener('keydown', e => {
+  // Tab：输入框空着时填入建议
+  if (e.key === 'Tab' && !input.value && S.suggestion && S.suggestion.actions.length && !S.running) {
+    e.preventDefault(); input.value = S.suggestion.actions[0]; autosize();
+  }
+}, true);
+
+window.AD = {
+  setSession(s) {
+    const changed = !S.session || S.session.id !== s.id;
+    S.session = s;
+    document.body.dataset.kind = s.kind;
+    $('hdr').style.display = ''; $('ftr').style.display = '';
+    autosize();
+    $('title').textContent = s.title;
+    $('meta').textContent = [s.app, s.project, s.running ? '运行中' : '空闲'].filter(Boolean).join(' · ');
+    $('dot').classList.toggle('run', s.running);
+    $('openApp').textContent = s.canOpen ? `在 ${s.app} 中打开` : `切到 ${s.app}`;
+    $('openApp').style.display = s.draft ? 'none' : '';
+    renderChips(); renderButtons();
+    $('hint').textContent = s.hint;
+    if (S.running !== s.running) { S.running = s.running; if (!changed) render(); renderQueued(); tickProgress(); }
+    renderSuggestion();
+    if (changed) {
+      S.items = []; S.json = ''; S.lastId = ''; S.seen = null; S.live = null; S.gstate = {}; $('newmsg').classList.remove('on'); S.open.clear(); S.groups.clear(); S.tasks = []; S.suggestion = null; S.plan = []; renderAsk(null);
+      closeMenu(true); renderTasks(); $('tasks').classList.remove('on');
+      patchBlocks($('log'), ['<div class="empty">加载中…</div>']);
+      if (s.draft) render();
+      if (!S.sending) notice('');
+      $('scroll').scrollTop = 0;
+      input.focus();
+    }
+  },
+  setItems(items) {
+    const j = JSON.stringify(items);
+    if (j === S.json) return;
+    const first = !S.json;
+    S.json = j; S.items = items;
+    render();
+    if (first) $('scroll').scrollTop = $('scroll').scrollHeight;
+  },
+  nativeUp,
+  setDetail(d) {
+    if (later('detail', () => AD.setDetail(d))) return;
+    // Swift 那边已经去重：内容没变不会推过来
+    const first = !S.json;
+    S.json = 'x'; S.hidden = d.hidden || 0; S.items = d.items; S.tasks = d.tasks; S.suggestion = d.suggestion; S.plan = d.plan;
+    if (d.model && S.session && !S.session.model) { S.session.model = d.model; renderChips(); }
+    render(); renderTasks(); renderAsk(d.ask);
+    if (first) $('scroll').scrollTop = $('scroll').scrollHeight;
+  },
+  result(r) {
+    if (r.type === 'send') {
+      S.sending = false; input.disabled = false;
+      if (r.ok) { input.value = ''; S.att = []; renderAtts(); }
+      autosize(); input.focus();
+    }
+    if (r.type === 'chip' || r.type === 'choose') closeMenu(true);
+    if (r.type === 'answer' && S.ask) { S.ask.busy = r.ok; askUpdate(); }
+    notice(r.notice || '', r.ok);
+  },
+  attached(r) {
+    for (const f of r.files) S.att.push({ path: f.path, name: f.name, thumb: r.thumb ? pendingThumbs.shift() : null });
+    renderAtts(); input.focus();
+  },
+  // 跳到某条消息（正文搜索）：滚到正中，闪一下
+  focus(ids) {
+    const el = $('log').querySelector(`[data-k="${CSS.escape(ids[0])}"]`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'center' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  },
+  live(l) {
+    S.live = l;
+    render();
+  },
+  setQueue(q) {
+    if (later('queue', () => AD.setQueue(q))) return;
+    S.queued = q.map(x => ({ id: x.id, text: x.text, sending: !!x.sending }));
+    renderQueued();
+    const sc = $('scroll');
+    if (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 60) sc.scrollTop = sc.scrollHeight;
+  },
+  pickDone() {
+    const b = $('attach');
+    delete b.dataset.busy; b.textContent = '📎'; b.title = '附上文件或图片（也可以直接粘贴或拖进来）';
+  },
+  approval(a) {
+    const box = $('approval');
+    if (!a) { box.classList.remove('on'); box.innerHTML = ''; return; }
+    box.innerHTML = `<div class="at">⚠︎ ${esc(a.title)}</div>${a.detail ? `<div class="ad">${esc(a.detail)}</div>` : ''}
+      <div class="ab">${a.labels.map((l, i) => `<button class="${a.approve[i] ? 'yes' : ''}" data-approve="${i}">${esc(l)}</button>`).join('')}</div>`;
+    box.classList.add('on');
+  },
+  menu(m) {
+    if (!S.menuOpen) return;
+    $('dd').innerHTML = `<div class="cur">当前：${esc(m.current)}</div>` + m.items.map((l, i) => {
+      // “自动 推荐 由 Claude 处理权限决策”这类：中文名后面跟说明，拆开显示；英文模型名保持完整
+      const [head, ...rest] = l.split(' ');
+      const split = /[\u4e00-\u9fff]/.test(head) && rest.length;
+      return `<div class="it" data-i="${i}">${esc(split ? head : l)}${split ? `<span class="sub">${esc(rest.join(' '))}</span>` : ''}</div>`;
+    }).join('');
+  },
+  menuDone(m) {
+    closeMenu(true);
+    if (m.chip === 'model') S.session.model = m.current; else S.session.perm = m.current;
+    renderChips();
+  },
+  notice
+};
+autosize();
+post({ type: 'ready' });
+</script>
+</body>
+</html>
