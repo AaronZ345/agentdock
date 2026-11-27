@@ -7,12 +7,11 @@ struct WebView: NSViewRepresentable {
     func updateNSView(_ v: WKWebView, context: Context) {}
 }
 
-/// 全应用统一用北京时间，不受系统或环境变量 TZ 影响
-let beijing = TimeZone(identifier: "Asia/Shanghai")!
-private let bjCal: Calendar = { var c = Calendar(identifier: .gregorian); c.timeZone = beijing; return c }()
+/// 全应用统一用系统时区（appZone，见 Zone.swift），不受环境变量 TZ 影响
+private let appCal: Calendar = { var c = Calendar(identifier: .gregorian); c.timeZone = appZone; return c }()
 
 private func dayLabel(_ d: Date) -> String {
-    let cal = bjCal
+    let cal = appCal
     if cal.isDateInToday(d) { return "今天" }
     if cal.isDateInYesterday(d) { return "昨天" }
     if Date().timeIntervalSince(d) < 7 * 24 * 3600 { return "最近 7 天" }
@@ -26,9 +25,9 @@ private func dayTitle(_ day: String) -> String {
 
 private func timeLabel(_ d: Date) -> String {
     let f = DateFormatter()
-    f.timeZone = beijing
+    f.timeZone = appZone
     if isEnglish { f.locale = Locale(identifier: "en_US_POSIX") }
-    f.dateFormat = bjCal.isDateInToday(d) ? "HH:mm" : tr("M月d日", "MMM d")
+    f.dateFormat = appCal.isDateInToday(d) ? "HH:mm" : tr("M月d日", "MMM d")
     return f.string(from: d)
 }
 
@@ -173,7 +172,7 @@ struct UsageView: View {
 
 func hhmm(_ d: Date) -> String {
     let f = DateFormatter()
-    f.timeZone = TimeZone(identifier: "Asia/Shanghai")
+    f.timeZone = appZone
     f.dateFormat = "HH:mm"
     return f.string(from: d)
 }

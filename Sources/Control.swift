@@ -342,9 +342,9 @@ struct UsageApp: Identifiable, Hashable {
     let items: [UsageItem]
 }
 
-private let bjFormatter: DateFormatter = {
+private let usageFormatter: DateFormatter = {
     let f = DateFormatter()
-    f.timeZone = TimeZone(identifier: "Asia/Shanghai")
+    f.timeZone = appZone
     f.locale = Locale(identifier: "en_US_POSIX")
     f.dateFormat = tr("M月d日 HH:mm", "MMM d HH:mm")
     return f
@@ -387,7 +387,7 @@ func readUsage() async -> [UsageApp] {
             for bk in (g["buckets"] as? [[String: Any]]) ?? [] {
                 guard let f = bk["remainingFraction"] as? Double else { continue }
                 let w = bk["window"] as? String == "weekly" ? tr("每周", "weekly") : bk["window"] as? String == "5h" ? tr("5 小时", "5-hour") : (bk["window"] as? String ?? "")
-                let reset = (bk["resetTime"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }.map { tr(bjFormatter.string(from: $0) + " 重置", "Resets " + bjFormatter.string(from: $0)) } ?? ""
+                let reset = (bk["resetTime"] as? String).flatMap { ISO8601DateFormatter().date(from: $0) }.map { tr(usageFormatter.string(from: $0) + " 重置", "Resets " + usageFormatter.string(from: $0)) } ?? ""
                 items.append(UsageItem(label: "\(gname) \(w)", used: 1 - f, note: reset))
             }
         }
@@ -437,7 +437,7 @@ func codexUsageFromFiles() -> (items: [UsageItem], at: Date)? {
                     items.append(UsageItem(label: label, used: 0, note: tr("已重置", "Reset")))
                 } else {
                     items.append(UsageItem(label: label, used: used / 100,
-                                           note: reset.map { tr(bjFormatter.string(from: $0) + " 重置", "Resets " + bjFormatter.string(from: $0)) } ?? ""))
+                                           note: reset.map { tr(usageFormatter.string(from: $0) + " 重置", "Resets " + usageFormatter.string(from: $0)) } ?? ""))
                 }
             }
             if let c = rl["credits"] as? [String: Any], c["unlimited"] as? Bool != true,

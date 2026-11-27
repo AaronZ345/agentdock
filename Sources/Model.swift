@@ -528,14 +528,13 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         web = ClickThroughWebView(frame: .zero, configuration: cfg)
         super.init()
         cfg.userContentController.add(self, name: "ad")
-        // 告诉聊天页用哪种语言（页面里用 tr('中文','English') 取文案）
-        cfg.userContentController.addUserScript(WKUserScript(source: "window.AD_LANG = '\(appLang)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        cfg.userContentController.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // 切换语言：换掉注入的语言、重新加载聊天页（加载完会把当前会话再推一遍）
         NotificationCenter.default.addObserver(forName: .languageChanged, object: nil, queue: .main) { [weak self] _ in
             guard let self else { return }
             let uc = self.web.configuration.userContentController
             uc.removeAllUserScripts()
-            uc.addUserScript(WKUserScript(source: "window.AD_LANG = '\(appLang)';", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+            uc.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
             self.ready = false
             self.web.reload()
         }
@@ -545,6 +544,9 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         web.loadFileURL(res.appendingPathComponent("chat.html"), allowingReadAccessTo: res)
         // 不定时轮询：对话记录、后台任务输出文件一变就重读（见 rewatch）；批准卡片在状态变了、记录变了时去找
     }
+
+    /// 页面开始前注入：界面语言（页面里用 tr('中文','English') 取文案）、显示时间用的时区
+    private static var pagePrelude: String { "window.AD_LANG = '\(appLang)'; window.AD_TZ = '\(appZone.identifier)';" }
 
     // MARK: 文件变动通知：盯住正在看的这条会话的记录文件和还在跑的后台任务输出文件
 
