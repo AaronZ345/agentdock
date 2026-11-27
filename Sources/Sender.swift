@@ -11,13 +11,25 @@ struct SendError: Error { let message: String }
 private let debugURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
     .appendingPathComponent("AgentDock/send-debug.log")
 
+/// 日志超过这个大小就转存：改名为 send-debug.log.1（只留这一份旧的），再从头写
+private let debugLogMax = 1024 * 1024
+private let debugLogLock = NSLock()
+
 func log(_ s: String) {
     let line = "[\(ISO8601DateFormatter().string(from: Date()))] \(s)\n"
-    if let h = try? FileHandle(forWritingTo: debugURL) {
-        h.seekToEndOfFile(); h.write(Data(line.utf8)); try? h.close()
-    } else {
-        try? Data(line.utf8).write(to: debugURL)
+    try? FileManager.default.createDirectory(at: debugURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    debugLogLock.lock()
+    if let size = (try? FileManager.default.attributesOfItem(atPath: debugURL.path))?[.size] as? NSNumber, size.intValue > debugLogMax {
+        try? FileManager.default.removeItem(atPath: debugURL.path + ".1")
+        try? FileManager.default.moveItem(atPath: debugURL.path, toPath: debugURL.path + ".1")
     }
+    debugLogLock.unlock()
+    // 以追加方式打开：几个线程同时写也不会互相盖掉
+    let fd = open(debugURL.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
+    guard fd >= 0 else { return }
+    defer { close(fd) }
+    let data = Data(line.utf8)
+    data.withUnsafeBytes { buf in _ = write(fd, buf.baseAddress, buf.count) }
 }
 
 func deliver(_ s: Session, _ text: String) async throws {
@@ -199,7 +211,8 @@ func sendViaUI(_ s: Session, _ text: String, dryRun: Bool = false) async throws 
         written = composerValue(composer)
         if normalized(written) == normalized(text) { break }
     }
-    log("\(s.app) \(s.rawId): written = \(written.prefix(80))\(leftover ? "（沿用输入框里上次没发出去的内容）" : "")")
+    // 消息正文不进日志，只记写了多少字、核对是否一致
+    log("\(s.app) \(s.rawId): written \(written.count) chars (expected \(text.count)), match=\(normalized(written) == normalized(text))\(leftover ? "（沿用输入框里上次没发出去的内容）" : "")")
     guard normalized(written) == normalized(text) else {
         // 后台写入没对上（原应用改版等）：退回备用办法——切前台、借剪贴板粘贴、回车。会闪一下，但能发出去
         if !dryRun, composerEmpty(composer) {
