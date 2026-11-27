@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/icon.png" width="120" alt="AgentDock">
+  <img src="docs/images/icon.png" width="120" alt="Convoy">
 </p>
 
-<h1 align="center">AgentDock</h1>
+<h1 align="center">Convoy</h1>
 
 <p align="center">
   <b>一个窗口，管好你所有的 AI 编程 agent。</b>
@@ -18,29 +18,29 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/attitudechunfeng/agentdock/releases/latest"><b>下载</b></a> ·
+  <a href="https://github.com/attitudechunfeng/convoy/releases/latest"><b>下载</b></a> ·
   <a href="#安装">安装</a> ·
   <a href="#常见问题">常见问题</a> ·
   <a href="docs/DEVELOPMENT.md">开发说明</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/attitudechunfeng/agentdock/releases/latest"><img src="https://img.shields.io/github/v/release/attitudechunfeng/agentdock?label=release" alt="release"></a>
+  <a href="https://github.com/attitudechunfeng/convoy/releases/latest"><img src="https://img.shields.io/github/v/release/attitudechunfeng/convoy?label=release" alt="release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-black?logo=apple" alt="macOS 14+">
   <img src="https://img.shields.io/badge/Apple%20芯片%20%7C%20Intel-通用-blue" alt="Apple 芯片和 Intel 通用">
-  <a href="https://github.com/attitudechunfeng/agentdock/releases"><img src="https://img.shields.io/github/downloads/attitudechunfeng/agentdock/total?label=downloads" alt="downloads"></a>
+  <a href="https://github.com/attitudechunfeng/convoy/releases"><img src="https://img.shields.io/github/downloads/attitudechunfeng/convoy/total?label=downloads" alt="downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license Apache-2.0"></a>
 </p>
 
-![AgentDock 演示：三个应用的会话在一个列表里、直接回复、回答提问卡片、项目看板](docs/images/demo.gif)
+![Convoy 演示：三个应用的会话在一个列表里、直接回复、回答提问卡片、项目看板](docs/images/demo.gif)
 
-> 界面支持中文和英文，默认中文，可以在首页切换。
+> 原名 **AgentDock**。界面支持中文和英文，默认中文，可以在首页切换。
 
 ## 为什么做它
 
 现在很多工作要几个 agent 并行协作：Claude 写代码，Codex 跑实验，Gemini 帮着评审方案。可它们各在各的应用里，一会儿切到这个看有没有回复，一会儿切到那个批准一个操作，再切回来接着聊。窗口来回切，注意力跟着被打断，几个项目同时推进时更容易乱。
 
-AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗口**，在这里看、在这里回，再用项目看板把每个项目的目标和进度串起来。
+Convoy 要解决的就是这件事：**把多个 agent 应用收进一个窗口**，在这里看、在这里回，再用项目看板把每个项目的目标和进度串起来。
 
 ## 为什么用它
 
@@ -51,7 +51,7 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 三个应用的会话放进同一个列表，按时间、目录或项目分组。哪条有新回复、哪条还在跑、哪条在等你批准，一眼就能看到，已读状态和原应用双向同步。
 
 **💬 不切窗口就能回复**
-发消息、回答 agent 的选择题、批准操作、切换模型和权限，都在 AgentDock 里完成，原应用在后台照常工作，不用来回切。会话还在跑时发的消息会自动排队，等它停下再发出。
+发消息、回答 agent 的选择题、批准操作、切换模型和权限，都在 Convoy 里完成，原应用在后台照常工作，不用来回切。会话还在跑时发的消息会自动排队，等它停下再发出。
 
 **🎯 项目看板：多个 agent 并行也不失焦**
 自动把会话归到项目，每轮回复结束后汇总：总目标、各条工作线的进度、等你拍板的事、实测有效和无效的做法。目标和工作线由你来定，模型只更新进度，想改目标时会先提建议等你采纳。打开后还能把看板自动带进会话，让 agent 每次动手前先对齐目标。
@@ -62,7 +62,7 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 **⚡️ 轻**
 有变化才刷新，后台常驻 CPU 不到 1%。关掉窗口也会在后台继续同步。
 
-| 你在做的事 | 只用原应用 | 用 AgentDock |
+| 你在做的事 | 只用原应用 | 用 Convoy |
 |---|---|---|
 | 看三个应用里谁回复了 | 挨个打开、挨个翻 | 一个列表，未读置顶 |
 | 回复一条会话 | 切到那个应用、找到会话 | 当前窗口直接回 |
@@ -70,9 +70,9 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 | 记住每个项目做到哪了 | 靠翻聊天记录、靠记忆 | 项目看板自动汇总 |
 | 新开的会话不了解前情 | 手动把背景再讲一遍 | 看板自动带进会话 |
 
-**和其他多 agent 集成工具比**，AgentDock 不另起一套环境：
+**和其他多 agent 集成工具比**，Convoy 不另起一套环境：
 
-| | 常见的集成工具 | AgentDock |
+| | 常见的集成工具 | Convoy |
 |---|---|---|
 | 开始用之前 | 填 API Key、配置模型、重新接入每个 agent | 打开就行，自动找到本机已装的应用 |
 | 已有的会话 | 留在原应用里，看不到 | 全部列出来，接着聊 |
@@ -89,9 +89,9 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 
 ## 安装
 
-1. 从 [Releases](https://github.com/attitudechunfeng/agentdock/releases/latest) 下载 `AgentDock-x.x.dmg`，打开后把 AgentDock 拖进“应用程序”。
-2. 第一次打开时，系统会提示“无法验证开发者”（应用没有经过 Apple 公证）。在“应用程序”里**右键 AgentDock → 打开**；如果弹窗里没有“打开”按钮，去 **系统设置 → 隐私与安全性**，点“仍要打开”。只需要这一次。
-3. 跟着首次启动的引导走，打开“辅助功能”权限。只看会话的话不开也行；要在 AgentDock 里回复，就需要它。
+1. 从 [Releases](https://github.com/attitudechunfeng/convoy/releases/latest) 下载 `Convoy-x.x.dmg`，打开后把 Convoy 拖进“应用程序”。
+2. 第一次打开时，系统会提示“无法验证开发者”（应用没有经过 Apple 公证）。在“应用程序”里**右键 Convoy → 打开**；如果弹窗里没有“打开”按钮，去 **系统设置 → 隐私与安全性**，点“仍要打开”。只需要这一次。
+3. 跟着首次启动的引导走，打开“辅助功能”权限。只看会话的话不开也行；要在 Convoy 里回复，就需要它。
 
 需要至少装了一个：[Claude 桌面版](https://claude.ai/download)、Codex 桌面版、Antigravity，并且用它们聊过天。
 
@@ -110,16 +110,16 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 看会话、回复会话不额外花。项目看板的汇总会调用你本机的 Claude Code、Codex 或 Gemini（在看板里选），用的是你自己账号的额度，默认关闭，打开才开始。
 
 **我的数据安全吗？**
-所有东西都在本机。AgentDock 没有服务器，不联网上传。它自己的数据放在 `~/Library/Application Support/AgentDock` 和 `~/.agentdock`。
+所有东西都在本机。Convoy 没有服务器，不联网上传。它自己的数据放在 `~/Library/Application Support/AgentDock` 和 `~/.agentdock`（沿用了改名前的文件夹名）。
 
 **为什么要“辅助功能”权限？**
-各应用没有开放“发消息”之类的接口，AgentDock 需要在后台替你点它们的界面。只看会话不需要这个权限。
+各应用没有开放“发消息”之类的接口，Convoy 需要在后台替你点它们的界面。只看会话不需要这个权限。
 
 **“让会话读到看板”会改什么？**
 这一项默认关闭。打开时会在 Claude Code 和 Codex 的配置里各加一个钩子，改之前先备份；关掉时会把钩子摘掉，别的设置不动。
 
 **怎么卸载？**
-如果开过“让会话读到看板”，先在看板里关掉；然后把 AgentDock 拖进废纸篓。想连数据一起删，再删掉上面那两个文件夹。
+如果开过“让会话读到看板”，先在看板里关掉；然后把 Convoy 拖进废纸篓。想连数据一起删，再删掉上面那两个文件夹。
 
 ## 从源码编译
 
@@ -131,4 +131,4 @@ AgentDock 要解决的就是这件事：**把多个 agent 应用收进一个窗�
 
 ## 协议
 
-AgentDock 以 [Apache License 2.0](LICENSE) 开源。聊天页渲染 Markdown 用到的 [marked](https://github.com/markedjs/marked) 是 MIT 协议。
+Convoy 以 [Apache License 2.0](LICENSE) 开源。聊天页渲染 Markdown 用到的 [marked](https://github.com/markedjs/marked) 是 MIT 协议。

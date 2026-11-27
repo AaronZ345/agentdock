@@ -1,8 +1,10 @@
-# AgentDock 开发说明
+# Convoy 开发说明
+
+> 2026-11 由 AgentDock 改名为 Convoy（避开同名项目）。对外名字（应用、安装包、仓库、文案）都换了；内部标识保持不变，方便老用户升级：应用标识 `local.agentdock`、数据目录 `~/Library/Application Support/AgentDock` 和 `~/.agentdock`、签名证书「AgentDock Local Signing」、`.agentdock-backup` 备份名。旧版装的看板钩子指向 AgentDock.app，新版启动时会自动换成新路径（`migrateBoardHooks`）；`install.sh` 会顺手删掉旧的 /Applications/AgentDock.app。
 
 这份文档写给要改代码的人：实现原理、各项功能的细节、调试手段。使用介绍见 [README](../README.zh-CN.md)。
 
-AgentDock 在一个窗口里统一查看和操作 Codex、Claude 桌面端、Antigravity 的会话。
+Convoy 在一个窗口里统一查看和操作 Codex、Claude 桌面端、Antigravity 的会话。
 
 它不接管任何 agent：
 - **查看**：只读各应用留在本机的会话记录。
@@ -15,7 +17,7 @@ AgentDock 在一个窗口里统一查看和操作 Codex、Claude 桌面端、Ant
 ./install.sh
 ```
 
-它会编译、装到 `/Applications/AgentDock.app`、登记到系统，然后打开。之后从启动台、Spotlight 或程序坞都能一键打开，可以把它拖进程序坞常驻。只想编译不安装就用 `./build.sh`，产物在 `build/AgentDock.app`。
+它会编译、装到 `/Applications/Convoy.app`、登记到系统，然后打开。之后从启动台、Spotlight 或程序坞都能一键打开，可以把它拖进程序坞常驻。只想编译不安装就用 `./build.sh`，产物在 `build/Convoy.app`。
 
 图标由 `tools/make_icon.swift` 画出来：暖炭灰底上，三张对话卡片分别是 Claude 橙、Codex 白、Antigravity 蓝紫，底部一条“坞”。改完图标后运行下面两条命令重新生成：
 
@@ -38,7 +40,7 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 
 ## 发给别人用
 
-- 打包：`./package.sh`，生成 `dist/AgentDock-<版本>.dmg`（Apple 芯片和 Intel 通用，约 3.6 MB），里面有 AgentDock.app、“应用程序”快捷方式和 `安装说明.txt`（源文件在 `packaging/`）。版本号改 `Info.plist` 的 `CFBundleShortVersionString`。
+- 打包：`./package.sh`，生成 `dist/Convoy-<版本>.dmg`（Apple 芯片和 Intel 通用，约 3.6 MB），里面有 Convoy.app、“应用程序”快捷方式和 `安装说明.txt`（源文件在 `packaging/`）。版本号改 `Info.plist` 的 `CFBundleShortVersionString`。
 - 签名用本机钥匙串里的自签名证书“AgentDock Local Signing”，没有经过 Apple 公证：对方第一次打开要右键“打开”，或在“系统设置 → 隐私与安全性”里点“仍要打开”，安装说明里写了。每次都用同一张证书签，对方更新后辅助功能权限一般不用重开。
 - 对方机器上的应用按 bundle id 找：Codex（`com.openai.codex`，有的叫 ChatGPT.app、有的叫 Codex.app）、Claude（`com.anthropic.claudefordesktop`）。另外的 Claude 桌面应用（比如多账号启动器）写在本机的 `~/.agentdock/config.json` 里，格式见 `Sources/Sessions.swift` 开头，这个文件不随应用分发。看板汇总找 Claude Code 命令行时，除了常见位置，还会用 Claude 桌面版自带的那份。
 - 新装默认：看板不自动汇总、会话不自动读看板，都要对方自己打开，避免没打招呼就花额度或改配置。
@@ -46,7 +48,7 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 
 ## 窗口
 
-- 点窗口的关闭按钮或按 ⌘W，和 Claude 一样只关掉窗口，AgentDock 留在后台继续同步、发送排队的消息；点程序坞里的图标，窗口就重新打开，原来看的会话和输入框内容都还在。
+- 点窗口的关闭按钮或按 ⌘W，和 Claude 一样只关掉窗口，Convoy 留在后台继续同步、发送排队的消息；点程序坞里的图标，窗口就重新打开，原来看的会话和输入框内容都还在。
 - 要真正退出用 ⌘Q，或在程序坞图标上右键选「退出」。
 - 为了窗口关了还能留在后台：应用代理里「最后一个窗口关闭后不退出」，启动时关掉 macOS 的自动终止和突然终止（Info.plist 也声明了 `NSSupportsAutomaticTermination` / `NSSupportsSuddenTermination` 为否）。
 
@@ -65,9 +67,9 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
   - 顶部可以按应用筛选；搜索框同时搜全部会话的标题、目录和正文。正文命中显示在「正文匹配」组里，带命中那句话的片段，点一下打开会话并滚到那条消息、闪一下。正文索引启动后在后台建好（76 条会话约 4.5 秒），之后每次搜索 0.2–0.4 秒。
   - 分组互斥，每条会话只出现在一个组，从上到下：
     - 「未读」：和原应用的已读状态双向同步，行上有橙色「未读」标签、标题加粗。
-      - 原应用 → AgentDock：以原应用自己的未读为准。Claude 直接读它侧栏上的蓝点（行名里带“未读回复”就是未读；靠侧栏的变化通知，变了马上知道），侧栏收起、窗口关着或这一行不在侧栏里时，才按会话表推算：lastFocusedAt 只在切到会话时写、离开时不写，所以把下一条被切到的会话的 lastFocusedAt 当成离开时间，离开之后才结束的一轮（lastTurnEdgeAt）算未读；Codex 看状态库 `thread_read_receipts` 的 first_unread_turn；Antigravity 看注释里的“标为未读”和 last_user_view_time。你在原应用里看过、或手动“标为未读”，AgentDock 都会跟着变。
-      - AgentDock → 原应用：在 AgentDock 里打开原应用标着未读的会话时，替你在原应用里标已读。Antigravity 调官方接口 `UpdateConversationAnnotations` 写入查看时间；Claude 和 Codex 没有接口，在后台把原应用切到这条会话，由它自己记成已读。
-      - 你在 AgentDock 里看过最新输出、原应用还没来得及记成已读时，不会再显示成未读。
+      - 原应用 → Convoy：以原应用自己的未读为准。Claude 直接读它侧栏上的蓝点（行名里带“未读回复”就是未读；靠侧栏的变化通知，变了马上知道），侧栏收起、窗口关着或这一行不在侧栏里时，才按会话表推算：lastFocusedAt 只在切到会话时写、离开时不写，所以把下一条被切到的会话的 lastFocusedAt 当成离开时间，离开之后才结束的一轮（lastTurnEdgeAt）算未读；Codex 看状态库 `thread_read_receipts` 的 first_unread_turn；Antigravity 看注释里的“标为未读”和 last_user_view_time。你在原应用里看过、或手动“标为未读”，Convoy 都会跟着变。
+      - Convoy → 原应用：在 Convoy 里打开原应用标着未读的会话时，替你在原应用里标已读。Antigravity 调官方接口 `UpdateConversationAnnotations` 写入查看时间；Claude 和 Codex 没有接口，在后台把原应用切到这条会话，由它自己记成已读。
+      - 你在 Convoy 里看过最新输出、原应用还没来得及记成已读时，不会再显示成未读。
     - 「运行中」：正在跑的会话，以及主任务空闲但还有后台任务在跑的会话（行尾显示齿轮和任务数）。Claude 的后台任务包括：后台运行的命令（run_in_background）、循环的定时任务（CronCreate，被 CronDelete 取消或 7 天到期为止）、监听（Monitor，到期或结束为止）；这些都只活在当前 Claude 进程里，进程重启前开的不算。
       有后台任务的会话即使有新输出也留在这一组，只打「未读」标签，不挪去「未读」组（定时巡检会反复出新输出，不然会来回跳）。
     - 「今天 / 昨天 / 最近 7 天 / 更早」：其余会话。
@@ -82,7 +84,7 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
   写下第一条消息后：
   - Claude、Codex：在后台点侧栏里「在 某目录 中新建」，写入消息并发送，随后自动选中新会话。
   - Antigravity：用 `agentapi new-conversation`。
-- **Antigravity 的提问**：通过本地接口发过去的消息（Claude、Codex 的同步，或从 AgentDock 发的），在它的记录里是系统消息「[Message] … content=正文」，会取出正文当作提问显示，历史和正文搜索里也有。
+- **Antigravity 的提问**：通过本地接口发过去的消息（Claude、Codex 的同步，或从 Convoy 发的），在它的记录里是系统消息「[Message] … content=正文」，会取出正文当作提问显示，历史和正文搜索里也有。
 - **复制**：回复下方、你的消息（鼠标移上去时）、代码块右上角都有「复制」。
 - **右键菜单**（三个应用都有）：在应用中打开、重命名、分叉、置顶、归档、删除。
   - Claude 走会话的「更多选项」菜单，Codex 走侧栏条目的右键菜单，Antigravity 走侧栏会话行的「More options」（分叉对应它的 Split）。
@@ -124,11 +126,11 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
   - 不选直接关掉时，按 Esc；Claude 的下拉 Esc 关不掉，就重新点一下当前那项。
 - **停止**：在跑时出现 ■。Claude、Codex 按的是原应用输入框旁的「停止」；Antigravity 调它本地服务的 `CancelCascadeInvocation`。
 - **排队**（参照 Claude）
-  - 任务在跑时发的消息，默认在 AgentDock 里按顺序排队，显示成虚线框的气泡；会话空闲后按顺序逐条发出，每发一条都等它开始跑再发下一条。
+  - 任务在跑时发的消息，默认在 Convoy 里按顺序排队，显示成虚线框的气泡；会话空闲后按顺序逐条发出，每发一条都等它开始跑再发下一条。
   - 每条排队消息下面有两个按钮：
     - 「立即发送」：不等当前任务结束，现在就发过去，等于插话引导；
     - 「撤回」：取消排队，内容放回输入框。
-  - 排队存在 `~/Library/Application Support/AgentDock/queue.json`，AgentDock 退出后再打开也还在；只有 AgentDock 开着时才会发出。
+  - 排队存在 `~/Library/Application Support/AgentDock/queue.json`，Convoy 退出后再打开也还在；只有 Convoy 开着时才会发出。
 - **附件**
   - 点 📎 选文件，或者直接粘贴、拖进图片；粘贴或拖进来的图片先存到 `~/Library/Application Support/AgentDock/uploads`。
   - 发送时把文件的完整路径附在消息末尾，由 agent 自己读取。
@@ -150,12 +152,12 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 - **刷新**：顶栏的刷新按钮把各会话最近的内容重读一遍，让模型按现在的目标和大类把进度、结论整体重新整理。你改过东西后按钮变成“按我的 N 处修改刷新”（高亮），修改清单会一起交给模型，下面有一条提示列出改了什么。刷新时按钮处显示进度。
 - **归类**：会话由汇总 agent 读标题和内容判断归到哪个项目，或算零散问答不进看板。会话后来的内容如果明显是另一个项目的事，自动重新归类（你手动归过的不动）。右键会话 →「归到项目」可以手动挪、新建项目或移出看板。
 - **删除项目**：弹窗确认。看板内容和项目文件删掉，会话本身不受影响；这个项目的会话记成零散、不再自动归类，不然下一轮一结束又会被归回来。想让某条会话回来，右键它 →「归到项目」。
-- **自动更新**：会话一轮回复结束后等 90 秒，期间同一项目别的会话也结束就合在一起，把这轮新增的用户消息和回复（不含工具调用）交给 agent 增量更新。AgentDock 没开时结束的轮次，下次启动时补上。
+- **自动更新**：会话一轮回复结束后等 90 秒，期间同一项目别的会话也结束就合在一起，把这轮新增的用户消息和回复（不含工具调用）交给 agent 增量更新。Convoy 没开时结束的轮次，下次启动时补上。
 - **汇总 agent**：总览或详情页底部可选。
   - Claude Code 命令行（Opus 5.5 默认 / Sonnet 5.5 / Haiku 5.5）、Codex 命令行（config.toml 的默认模型，可选强度）：无界面运行，不给工具、不跑你配的钩子、不留会话记录。
-  - Gemini（4 Neon 高 / 中、3.8 Flash）：借开着的 Antigravity，用 agentapi 临时开一个标题为「AgentDock 看板汇总」的对话，拿到回复就用 DeleteCascadeTrajectory 删掉；这种对话不进会话列表。它带工具、权限按 Antigravity 的全局预设，只能在提示里要求不用工具。
+  - Gemini（4 Neon 高 / 中、3.8 Flash）：借开着的 Antigravity，用 agentapi 临时开一个标题为「Convoy 看板汇总」的对话，拿到回复就用 DeleteCascadeTrajectory 删掉；这种对话不进会话列表。它带工具、权限按 Antigravity 的全局预设，只能在提示里要求不用工具。
   - 被模型的安全过滤误拦（实测语音研究类内容 Opus、Sonnet 都会被拦）或 Antigravity 没开时，按 Opus → Sonnet → Gemini → Codex → Haiku 的顺序换下一个重试。每次调用约 10–100 秒，花的是对应账号的额度。
-- **会话读到看板**（默认关，底部“会话自动读到看板”开关，打开前弹窗说明）：在 Claude Code（`~/.claude/settings.json`，以及本机配置里其他 Claude 账号的 settings.json）和 Codex（`~/.codex/hooks.json`）里加一个钩子 `AgentDock --board-hook`，挂在“发消息时”和“会话开始 / 压缩后”。钩子按会话 id 查 `~/.agentdock/boards/sessions.json` 找到所属项目，看板自上次注入后有变化、或会话刚开始 / 刚压缩时，把 `~/.agentdock/boards/.ctx/<项目 id>.txt`（总目标、现状、等你定、各大类进度、有效 / 无效做法）附进这一轮；没变化什么都不加。改配置前各备份一份 `.agentdock-backup`，只动带 `--board-hook` 的条目。Codex 第一次用到时会请你确认信任这个钩子。Antigravity 没有钩子，读不到。
+- **会话读到看板**（默认关，底部“会话自动读到看板”开关，打开前弹窗说明）：在 Claude Code（`~/.claude/settings.json`，以及本机配置里其他 Claude 账号的 settings.json）和 Codex（`~/.codex/hooks.json`）里加一个钩子 `Convoy --board-hook`，挂在“发消息时”和“会话开始 / 压缩后”。钩子按会话 id 查 `~/.agentdock/boards/sessions.json` 找到所属项目，看板自上次注入后有变化、或会话刚开始 / 刚压缩时，把 `~/.agentdock/boards/.ctx/<项目 id>.txt`（总目标、现状、等你定、各大类进度、有效 / 无效做法）附进这一轮；没变化什么都不加。改配置前各备份一份 `.agentdock-backup`，只动带 `--board-hook` 的条目。Codex 第一次用到时会请你确认信任这个钩子。Antigravity 没有钩子，读不到。
 - **项目文件**：每个项目一份完整 Markdown `~/.agentdock/boards/<项目名>.md`，目录里还有 `README.md` 索引。不开钩子时，可以用 ⋯ →「复制给 agent 的提示」让会话先读这份文件。
 - **存储**：看板内容、归类、汇总进度在 `~/Library/Application Support/AgentDock/board.json`。
 
@@ -178,7 +180,7 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
 
 ## 批准请求
 
-agent 中途要你批准时，在 AgentDock 里直接批：
+agent 中途要你批准时，在 Convoy 里直接批：
 
 - **Claude**：进程状态变成 waiting，左栏这条会话归进「运行中」并打红色「待批准」标签；打开它时，会在后台切到这条会话，找输入框区域里的批准卡片，把卡片上的说明和按钮原样搬到输入框上方，点哪个就在原应用里点哪个。
 - **Codex**：没有对应的状态文件，只在原应用窗口正显示这条会话时看有没有批准卡片：会话在跑时记录文件每变一次看一次（至少隔 2 秒）。
@@ -188,18 +190,18 @@ agent 中途要你批准时，在 AgentDock 里直接批：
 
 ## 回答问题（Claude）
 
-Claude 用 AskUserQuestion 向你提问时（原应用里是一张带选项的卡片），AgentDock 的输入框上方也会出现同样的卡片：
+Claude 用 AskUserQuestion 向你提问时（原应用里是一张带选项的卡片），Convoy 的输入框上方也会出现同样的卡片：
 
 - 题目、简短标签、每个选项的名字和说明都照原样显示，可多选的题标「可多选」；每题下面有「其他 / 补充说明」输入框。
 - 选项和输入框互不清空。单选题两边都有内容时，原应用里只能二选一，所以用「其他」提交「选项；补充的话」，Claude 两样都收到；只写了字就按「其他」提交。单选点已选的项不会取消（和原应用一样）。
 - 选了一半切到别的会话再回来，已经选的、写的都还在（按这组问题记着）。
-- 每题选好（或在「其他」里写了）后「提交」才能点。提交时 AgentDock 在后台切到原应用里这条会话，逐题勾选、填写、按「下一步」，全程不切前台。
-- 原应用的单选题默认勾着第一项。AgentDock 每题点完都会重新读勾选状态，隔一会儿再核对一次，正好是你选的才按「下一步」；对不上就停下、不提交，并提示你去原应用里看。
-- 是否提交成功以记录为准：Claude 收到回答会在记录里写一条这道题的结果，卡片随之消失。你在原应用里直接回答也一样，AgentDock 的卡片会自动收起。
+- 每题选好（或在「其他」里写了）后「提交」才能点。提交时 Convoy 在后台切到原应用里这条会话，逐题勾选、填写、按「下一步」，全程不切前台。
+- 原应用的单选题默认勾着第一项。Convoy 每题点完都会重新读勾选状态，隔一会儿再核对一次，正好是你选的才按「下一步」；对不上就停下、不提交，并提示你去原应用里看。
+- 是否提交成功以记录为准：Claude 收到回答会在记录里写一条这道题的结果，卡片随之消失。你在原应用里直接回答也一样，Convoy 的卡片会自动收起。
 - 左栏里在等回答的会话标红色「待回答」，等批准的标「待批准」（看 Claude 进程状态里的 waitingFor）。
 ## 性能
 - 点一下就生效：
-  - 窗口不在前台时，系统默认只拿第一下点击来激活窗口。AgentDock 在点击分发前先把窗口设成前台主窗口，聊天页的网页视图也接受“激活窗口的那一下”。
+  - 窗口不在前台时，系统默认只拿第一下点击来激活窗口。Convoy 在点击分发前先把窗口设成前台主窗口，聊天页的网页视图也接受“激活窗口的那一下”。
   - 刚点过左栏（键盘焦点不在聊天页）时，按下那一刻先把焦点交给聊天页，不让“接管焦点”吞掉这次点击。
   - 输入框有焦点时，中文输入法会先处理鼠标按下，页面收到的顺序变成“先松开、后按下”，不会产生点击。页面看到同一处刚松开又按下，就直接替你点一下；系统明明松开了、页面却没等到落在同一个按钮上的点击时，也补一下。补发的点击会在 send-debug.log 里记成「web 补点击」。
 - 聊天页不整块重画：消息区按块对比，只替换真正变了的块（通常只有正在输出的那一块）；计划清单、建议、后台任务、排队这些卡片内容没变就不重写。按住鼠标的那一小段时间里先不刷新，松开后再补上，所以会话一直在输出时点按钮也不会丢。
@@ -245,23 +247,23 @@ Claude 用 AskUserQuestion 向你提问时（原应用里是一张带选项的�
 日志在 `~/Library/Application Support/AgentDock/send-debug.log`。下面几条命令都只读，或者打开后会原样复原：
 
 ```bash
-open -n -g build/AgentDock.app --args --dump-ax <应用路径> <输出文件>
+open -n -g build/Convoy.app --args --dump-ax <应用路径> <输出文件>
 ```
 
 ```bash
-open -n -g build/AgentDock.app --args --test-send <会话 id> <文字>
+open -n -g build/Convoy.app --args --test-send <会话 id> <文字>
 ```
 
 ```bash
-open -n -g build/AgentDock.app --args --test-chip <会话 id> model
+open -n -g build/Convoy.app --args --test-chip <会话 id> model
 ```
 
 ```bash
-open -n -g build/AgentDock.app --args --test-usage
+open -n -g build/Convoy.app --args --test-usage
 ```
 
 ```bash
-open -n -g build/AgentDock.app --args --test-unread
+open -n -g build/Convoy.app --args --test-unread
 ```
 
 - `--dump-ax`：导出界面树。
@@ -271,10 +273,10 @@ open -n -g build/AgentDock.app --args --test-unread
 - `--test-unread`：读一次 Claude 侧栏的未读蓝点和耗时，再列出各应用判成未读的会话。
 - `--test-ax-observe <应用路径> <秒数>`：把这个应用发出的界面通知逐条记进日志，找能监听的变化时用。
 - `--test-board [会话 id…|rebuild|ctx]`：不带参数列出最近 40 条会话；带 id 把这些会话马上汇总进看板（写入真实看板）；`rebuild` 把所有项目清空后从头汇总；`ctx` 只重写给钩子用的上下文文件和会话对照表。结果写进日志。
-- `--board-hook`：钩子入口，从标准输入读 Claude Code / Codex 的钩子事件。手动试：`echo '{"hook_event_name":"UserPromptSubmit","session_id":"<会话 id>"}' | AgentDock --board-hook`。
-- `--demo-shots <目录>`：用编出来的演示会话和项目把界面跑起来，截 README 用的图（主窗口、看板总览、项目详情、引导）。完整窗口截图要给 AgentDock 开“屏幕录制”权限。
-- `--demo-shots <目录> --demo-gif`：按分镜录 README 顶上的动图（会话列表 → 在这里回复 → 回答提问卡片 → 看板），每帧下面加一行说明，输出 `<目录>/demo.gif`。录制时窗口要在前台（被挡住时网页不重画），所以先退出常驻的 AgentDock，再用 `open /Applications/AgentDock.app --args --demo-shots <目录> --demo-gif --lang zh` 启动（不要加 `-n`，否则拿不到前台）。演示模式不会去原应用里切会话、标已读。
-- `--test-press <应用路径> <按钮名>…`：用辅助功能依次按下那个应用里的按钮或菜单项（`type=文字` 往输入框里填字），测 AgentDock 自己的界面时用。
+- `--board-hook`：钩子入口，从标准输入读 Claude Code / Codex 的钩子事件。手动试：`echo '{"hook_event_name":"UserPromptSubmit","session_id":"<会话 id>"}' | Convoy --board-hook`。
+- `--demo-shots <目录>`：用编出来的演示会话和项目把界面跑起来，截 README 用的图（主窗口、看板总览、项目详情、引导）。完整窗口截图要给 Convoy 开“屏幕录制”权限。
+- `--demo-shots <目录> --demo-gif`：按分镜录 README 顶上的动图（会话列表 → 在这里回复 → 回答提问卡片 → 看板），每帧下面加一行说明，输出 `<目录>/demo.gif`。录制时窗口要在前台（被挡住时网页不重画），所以先退出常驻的 Convoy，再用 `open /Applications/Convoy.app --args --demo-shots <目录> --demo-gif --lang zh` 启动（不要加 `-n`，否则拿不到前台）。演示模式不会去原应用里切会话、标已读。
+- `--test-press <应用路径> <按钮名>…`：用辅助功能依次按下那个应用里的按钮或菜单项（`type=文字` 往输入框里填字），测 Convoy 自己的界面时用。
 - `--test-board-render <目录>`：把看板总览和每个项目的看板（大类全展开）离屏画成 PNG（下拉框、开关这类系统控件画不出来，显示成黄色占位）。
 - `--dump-ax` 导出的每个节点带网页的 class（`c=`），找原应用界面元素时用。
 

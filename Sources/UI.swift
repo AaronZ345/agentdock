@@ -511,7 +511,7 @@ struct WelcomeView: View {
             HStack(alignment: .top, spacing: 12) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 48, height: 48)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("AgentDock").font(.title2.weight(.semibold))
+                    Text("Convoy").font(.title2.weight(.semibold))
                     Text(tr("在一个窗口里查看和回复 Claude、Codex、Antigravity 的会话", "View and reply to Claude, Codex, and Antigravity sessions in one window")).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
@@ -519,7 +519,7 @@ struct WelcomeView: View {
             }
             VStack(alignment: .leading, spacing: 0) {
                 CheckRow(ok: model.trusted, title: tr("辅助功能权限", "Accessibility permission"),
-                         detail: model.trusted ? tr("已开启：可以在后台替你发消息、切模型、管理会话", "On: AgentDock can send messages, switch models, and manage sessions for you in the background")
+                         detail: model.trusted ? tr("已开启：可以在后台替你发消息、切模型、管理会话", "On: Convoy can send messages, switch models, and manage sessions for you in the background")
                                                : tr("看会话不需要；发消息、切模型、管理会话需要", "Not needed to view sessions; needed to send messages, switch models, and manage sessions"),
                          actionLabel: model.trusted ? nil : tr("去开启", "Turn on"), action: openAccessibilitySettings)
                 ForEach(model.agents) { a in
@@ -564,7 +564,7 @@ struct WelcomeView: View {
     }
 }
 
-// MARK: 点关闭（红点或 ⌘W）：像 Claude 一样只把窗口收起来，AgentDock 留在后台继续同步；
+// MARK: 点关闭（红点或 ⌘W）：像 Claude 一样只把窗口收起来，Convoy 留在后台继续同步；
 // 点程序坞图标就把窗口再打开。真正退出用 ⌘Q
 
 /// 包一层窗口代理：只接管“要不要关”，其余消息原样转给 SwiftUI 自己的代理

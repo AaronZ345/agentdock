@@ -151,7 +151,7 @@ private func key(_ code: CGKeyCode, cmd: Bool = false) {
 /// dryRun：走到第 3 步后清掉自己写的内容，不发送（测试用）
 func sendViaUI(_ s: Session, _ text: String, dryRun: Bool = false) async throws {
     guard AXIsProcessTrusted() else {
-        throw SendError(message: tr("AgentDock 还没有“辅助功能”权限，没法替你操作 \(s.app)。到 系统设置 → 隐私与安全性 → 辅助功能 里打开 AgentDock", "AgentDock doesn’t have Accessibility permission yet, so it can’t operate \(s.app) for you. Turn on AgentDock in System Settings → Privacy & Security → Accessibility."))
+        throw SendError(message: tr("Convoy 还没有“辅助功能”权限，没法替你操作 \(s.app)。到 系统设置 → 隐私与安全性 → 辅助功能 里打开 Convoy", "Convoy doesn’t have Accessibility permission yet, so it can’t operate \(s.app) for you. Turn on Convoy in System Settings → Privacy & Security → Accessibility."))
     }
     let app = try await ensureRunning(s.appPath)
     let me = NSRunningApplication.current

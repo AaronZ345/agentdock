@@ -8,7 +8,7 @@ enum Chip: String { case model, perm }
 
 
 private func appAX(_ s: Session) async throws -> (NSRunningApplication, AXUIElement) {
-    guard AXIsProcessTrusted() else { throw SendError(message: tr("AgentDock 还没有“辅助功能”权限", "AgentDock doesn’t have Accessibility permission yet")) }
+    guard AXIsProcessTrusted() else { throw SendError(message: tr("Convoy 还没有“辅助功能”权限", "Convoy doesn’t have Accessibility permission yet")) }
     let app = try await ensureRunning(s.appPath)
     let ax = AXUIElementCreateApplication(app.processIdentifier)
     enableWebAX(ax)
@@ -246,7 +246,7 @@ func newSession(kind: Kind, appPath: String, folder: String, text: String,
 
 /// 在原应用里点“在 某目录 中新建”，等新会话的空输入框出来
 func openNewSessionUI(kind: Kind, appPath: String, folder: String) async throws -> NewSessionUI {
-    guard AXIsProcessTrusted() else { throw SendError(message: tr("AgentDock 还没有“辅助功能”权限", "AgentDock doesn’t have Accessibility permission yet")) }
+    guard AXIsProcessTrusted() else { throw SendError(message: tr("Convoy 还没有“辅助功能”权限", "Convoy doesn’t have Accessibility permission yet")) }
     let app = try await ensureRunning(appPath)
     let ax = AXUIElementCreateApplication(app.processIdentifier)
     enableWebAX(ax)
@@ -418,7 +418,7 @@ func readUsage() async -> [UsageApp] {
 }
 
 
-// MARK: 批准请求：agent 中途要你批准时，在 AgentDock 里直接批
+// MARK: 批准请求：agent 中途要你批准时，在 Convoy 里直接批
 
 /// 一个待批准的请求。Claude / Codex 的按钮是原应用里的；Antigravity 走它本地服务的接口
 struct Approval {
@@ -625,7 +625,7 @@ private func press(_ e: AXUIElement) { AXUIElementPerformAction(e, kAXPressActio
 private func isChecked(_ e: AXUIElement) -> Bool { ((axGet(e, kAXValueAttribute) as NSNumber?)?.intValue ?? 0) != 0 }
 
 func answerAsk(_ s: Session, _ ask: PendingAsk, _ answers: [AskAnswer]) async throws {
-    guard AXIsProcessTrusted() else { throw SendError(message: tr("AgentDock 还没有辅助功能权限", "AgentDock doesn’t have Accessibility permission yet")) }
+    guard AXIsProcessTrusted() else { throw SendError(message: tr("Convoy 还没有辅助功能权限", "Convoy doesn’t have Accessibility permission yet")) }
     guard let app = runningApp(s.appPath) else { throw SendError(message: tr("\(s.app) 没在运行", "\(s.app) isn’t running")) }
     let ax = AXUIElementCreateApplication(app.processIdentifier)
     enableWebAX(ax)

@@ -1,4 +1,4 @@
-// 画 AgentDock 图标：暖炭灰圆角底，三张错开叠放的对话卡片，分别是 Claude 橙、Codex 白、Antigravity 蓝紫，
+// 画 Convoy 图标：暖炭灰圆角底，三张错开叠放的对话卡片，分别是 Claude 橙、Codex 白、Antigravity 蓝紫，
 // 底部一条“坞”托住它们。输出各尺寸 PNG 到 iconset 目录，再用 iconutil 合成 icns。
 import AppKit
 

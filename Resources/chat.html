@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' file:; style-src 'unsafe-inline'; img-src data: file:">
-<title>AgentDock</title>
+<title>Convoy</title>
 <style>
 :root {
   --bg: #faf9f5; --fg: #1f1e1d; --muted: #6b6a66; --faint: #9a9893; --line: #e6e3da;
@@ -836,7 +836,7 @@ function renderTasks() {
 }
 $('tasksBtn').addEventListener('click', () => $('tasks').classList.toggle('on'));
 
-// ---------- 问题卡片（Claude 的 AskUserQuestion）：选好后由 AgentDock 在原应用里逐题点选、提交 ----------
+// ---------- 问题卡片（Claude 的 AskUserQuestion）：选好后由 Convoy 在原应用里逐题点选、提交 ----------
 // 每组问题选了什么按问题 id 记着：切到别的会话再切回来，已经选的、写的都还在
 const askMemo = {};
 const ASK_PICK = () => tr('每题选一项，或在“其他”里写', 'Pick an option for each question, or write in “Other”');
@@ -875,7 +875,7 @@ function askUpdate() {
   const both = A.qs.some((q, i) => !q.multiSelect && A.picks[i].length && A.other[i].trim());
   $('askHint').textContent = A.busy ? tr('正在原应用里提交…', 'Submitting in the app…') : !ok ? ASK_PICK()
     : both ? tr('选项和补充的话会一起提交（单选题会写成“选项；补充的话”）', 'Your option and notes are sent together (single-choice answers become “option; notes”)')
-    : tr('会在原应用里替你逐题选好并提交', 'AgentDock will pick each answer and submit it in the app for you');
+    : tr('会在原应用里替你逐题选好并提交', 'Convoy will pick each answer and submit it in the app for you');
 }
 document.addEventListener('click', e => {
   const op = e.target.closest('[data-ask]');

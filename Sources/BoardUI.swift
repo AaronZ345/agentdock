@@ -97,8 +97,8 @@ struct BoardHeader: View {
             a.addButton(withTitle: tr("装上", "Install"))
         } else {
             a.messageText = tr("关掉会话自动读看板？", "Stop sharing the board with sessions?")
-            a.informativeText = tr("会把 Claude Code 和 Codex 配置里 AgentDock 加的钩子摘掉，其他钩子不动。",
-                                   "Removes the hooks AgentDock added to your Claude Code and Codex configs. Other hooks are left alone.")
+            a.informativeText = tr("会把 Claude Code 和 Codex 配置里 Convoy 加的钩子摘掉，其他钩子不动。",
+                                   "Removes the hooks Convoy added to your Claude Code and Codex configs. Other hooks are left alone.")
             a.addButton(withTitle: tr("关掉", "Turn off"))
         }
         a.addButton(withTitle: tr("取消", "Cancel"))

@@ -6,7 +6,7 @@ import AppKit
 //   把这轮新增的用户消息和回复交给汇总 agent 增量更新看板。不定时轮询
 // - 归类：新会话先让 agent 判断属于哪个已有项目、还是新项目、还是零散问答；你手动挪过的以你为准
 // - 汇总 agent：本机的 Claude Code（Haiku / Sonnet / Opus）或 Codex 命令行，无界面、不留会话记录
-// - 输出：除了 AgentDock 里的看板，每个项目还写一份 Markdown（~/.agentdock/boards/<项目>.md），
+// - 输出：除了 Convoy 里的看板，每个项目还写一份 Markdown（~/.agentdock/boards/<项目>.md），
 //   在会话里让 agent 先读这份文件，就能找回目标和已经验证过的结论
 
 struct BoardEntry: Codable, Equatable, Identifiable {
@@ -340,7 +340,7 @@ final class BoardStore: ObservableObject {
         enqueue([s.id], after: Self.debounce)
     }
 
-    /// AgentDock 启动时：已在看板里、但在 AgentDock 没开时又有新内容的会话，补上
+    /// Convoy 启动时：已在看板里、但在 Convoy 没开时又有新内容的会话，补上
     func catchUp(_ list: [Session]) {
         guard settings.auto else { return }
         let f = ISO8601DateFormatter()
@@ -490,8 +490,8 @@ final class BoardStore: ObservableObject {
     private func writeFiles() {
         try? FileManager.default.createDirectory(at: boardDir, withIntermediateDirectories: true)
         for p in projects { try? markdown(p).write(to: p.fileURL, atomically: true, encoding: .utf8) }
-        var idx = tr("# 项目看板索引\n\n由 AgentDock 根据各 agent 会话自动维护。开始或继续某个项目前，先读对应文件，找回当前目标、已验证的结论和等你定的事。\n\n",
-                     "# Project board index\n\nMaintained automatically by AgentDock from your agent sessions. Before starting or resuming a project, read its file to recover the current goal, verified findings, and decisions waiting on you.\n\n")
+        var idx = tr("# 项目看板索引\n\n由 Convoy 根据各 agent 会话自动维护。开始或继续某个项目前，先读对应文件，找回当前目标、已验证的结论和等你定的事。\n\n",
+                     "# Project board index\n\nMaintained automatically by Convoy from your agent sessions. Before starting or resuming a project, read its file to recover the current goal, verified findings, and decisions waiting on you.\n\n")
         for p in sorted { idx += "- [\(p.name)](\(p.fileURL.lastPathComponent))\(tr("：", ": "))\(p.goal.isEmpty ? tr("（待汇总）", "(not summarized yet)") : p.goal)\n" }
         try? idx.write(to: boardDir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
         writeContextFiles()
@@ -501,8 +501,8 @@ final class BoardStore: ObservableObject {
         let df = DateFormatter(); df.dateFormat = "yyyy-MM-dd HH:mm"
         let names = p.sessions.compactMap { lookup($0).map { tr("「\($0.title)」(\($0.app))", "\"\($0.title)\" (\($0.app))") } }
         let upd = p.updated.map { tr("，更新于 ", ", updated ") + df.string(from: $0) } ?? ""
-        var m = "# \(p.name)\n\n> " + tr("由 AgentDock 根据各会话自动维护\(upd)。关联会话：\(names.joined(separator: "、"))",
-                                          "Maintained automatically by AgentDock from its sessions\(upd). Linked sessions: \(names.joined(separator: ", "))") + "\n\n"
+        var m = "# \(p.name)\n\n> " + tr("由 Convoy 根据各会话自动维护\(upd)。关联会话：\(names.joined(separator: "、"))",
+                                          "Maintained automatically by Convoy from its sessions\(upd). Linked sessions: \(names.joined(separator: ", "))") + "\n\n"
         func src(_ e: BoardEntry) -> String { e.session.isEmpty ? "" : tr("（\(e.session)）", " (\(e.session))") }
         if !p.goal.isEmpty { m += tr("## 当前目标", "## Current goal") + "\n\n\(p.goal)\n\n" }
         if !p.status.isEmpty { m += tr("## 现状", "## Status") + "\n\n\(p.status)\n\n" }
@@ -941,7 +941,9 @@ func runBoardAgent(system: String, prompt: String, settings: BoardSettings) asyn
 
 // MARK: Gemini：借开着的 Antigravity 临时开一个对话，拿到回复就删掉
 
-let boardScratchTitle = "AgentDock 看板汇总"
+let boardScratchTitle = "Convoy 看板汇总"
+/// 改名前（AgentDock）留下的临时对话标题，列表里同样不显示
+let boardScratchTitles: Set<String> = [boardScratchTitle, "AgentDock 看板汇总"]
 private let agyServer = "/Applications/Antigravity.app/Contents/Resources/bin/language_server"
 
 /// Antigravity 的对话带工具、权限按你的全局预设，没法关掉，只能在提示里要求它不用工具。
@@ -994,20 +996,20 @@ private func waitGemini(_ cid: String) async throws -> String {
 }
 
 // MARK: 让会话读到项目看板
-// AgentDock 为每个项目写一份精简上下文（~/.agentdock/boards/.ctx/<项目 id>.txt），并记下每条会话属于哪个项目（sessions.json）。
-// Claude Code 和 Codex 的钩子（你发消息时、会话开始或压缩后）调用 `AgentDock --board-hook`：
+// Convoy 为每个项目写一份精简上下文（~/.agentdock/boards/.ctx/<项目 id>.txt），并记下每条会话属于哪个项目（sessions.json）。
+// Claude Code 和 Codex 的钩子（你发消息时、会话开始或压缩后）调用 `Convoy --board-hook`：
 // 认出这条会话的项目，看板自上次注入后有变化（或会话刚开始、刚压缩）就把精简上下文附进这一轮，没变化什么都不加
 
 let boardCtxDir = boardDir.appendingPathComponent(".ctx")
 private let boardSessionsURL = boardDir.appendingPathComponent("sessions.json")
 private let boardSeenURL = boardDir.appendingPathComponent(".ctx/seen.json")
-let boardHookCommand = "'/Applications/AgentDock.app/Contents/MacOS/AgentDock' --board-hook"
+let boardHookCommand = "'/Applications/Convoy.app/Contents/MacOS/Convoy' --board-hook"
 
 extension Project {
     /// 注入到会话里的精简版
     var contextText: String {
-        var m = tr("【项目看板：\(name)】由 AgentDock 根据这个项目的各个 agent 会话自动维护，目标和大类由用户确认。动手前先对齐；完整内容（含进展记录）见 \(fileURL.path)\n",
-                   "[Project board: \(name)] Maintained automatically by AgentDock from this project's agent sessions; the goal and workstreams are confirmed by the user. Align with it before you start. Full board (including the progress log): \(fileURL.path)\n")
+        var m = tr("【项目看板：\(name)】由 Convoy 根据这个项目的各个 agent 会话自动维护，目标和大类由用户确认。动手前先对齐；完整内容（含进展记录）见 \(fileURL.path)\n",
+                   "[Project board: \(name)] Maintained automatically by Convoy from this project's agent sessions; the goal and workstreams are confirmed by the user. Align with it before you start. Full board (including the progress log): \(fileURL.path)\n")
         if !goal.isEmpty { m += "\n" + tr("总目标：", "Overall goal: ") + goal + "\n" }
         if !status.isEmpty { m += tr("现状：", "Status: ") + status + "\n" }
         if !decisions.isEmpty { m += "\n" + tr("等用户拍板：", "Waiting on the user's decision:") + "\n" + decisions.map { "- " + $0.text }.joined(separator: "\n") + "\n" }
@@ -1069,7 +1071,7 @@ func boardHook() {
     if event == "SessionStart" && source == "startup" && seen[key] == ver { return }
     seen[key] = ver
     if let d = try? JSONSerialization.data(withJSONObject: seen) { try? d.write(to: boardSeenURL, options: .atomic) }
-    let note = text + tr("\n（以上由 AgentDock 自动附加；看板有更新时才会再次出现。）", "\n(Added automatically by AgentDock; it shows up again only when the board changes.)")
+    let note = text + tr("\n（以上由 Convoy 自动附加；看板有更新时才会再次出现。）", "\n(Added automatically by Convoy; it shows up again only when the board changes.)")
     let out: [String: Any] = ["hookSpecificOutput": ["hookEventName": event, "additionalContext": note]]
     if let d = try? JSONSerialization.data(withJSONObject: out) { FileHandle.standardOutput.write(d) }
 }
@@ -1105,6 +1107,17 @@ func setBoardHooks(_ on: Bool) -> [String] {
     }
     log("board hooks \(on ? "on" : "off"): \(changed)")
     return changed
+}
+
+/// 改名后（AgentDock → Convoy）已装的钩子还指着旧应用的路径：发现带 --board-hook 却不是现在这条命令，就换成新的
+func migrateBoardHooks() {
+    let home = NSHomeDirectory()
+    let files = [home + "/.claude/settings.json", home + "/.codex/hooks.json"] + extraClaudeSettings
+    let stale = files.contains {
+        let t = (try? String(contentsOfFile: $0, encoding: .utf8)) ?? ""
+        return t.contains("--board-hook") && !t.contains(boardHookCommand)
+    }
+    if stale { setBoardHooks(true) }
 }
 
 /// 钩子现在装着没有（看 Claude Code 的设置）

@@ -1,7 +1,7 @@
 import Cocoa
 import WebKit
 
-// 演示模式：AgentDock --demo-shots <输出目录>
+// 演示模式：Convoy --demo-shots <输出目录>
 // 用编出来的会话和项目把界面跑起来，截几张图给 README 用（不碰真实会话，也不写任何数据文件）。
 // 主窗口截图：SwiftUI 部分用窗口自己画，聊天页（网页）用网页视图自己的截图，再拼起来
 
@@ -180,7 +180,7 @@ func runDemoShots(_ model: Model, out: String) {
         done()
     }
     guard CGPreflightScreenCaptureAccess() else {
-        _ = CGRequestScreenCaptureAccess()   // 让系统把 AgentDock 列进“屏幕录制”，你去打开开关
+        _ = CGRequestScreenCaptureAccess()   // 让系统把 Convoy 列进“屏幕录制”，你去打开开关
         log("demo: no screen capture permission")
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { exit(2) }
         return

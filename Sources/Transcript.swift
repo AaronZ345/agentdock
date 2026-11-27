@@ -823,7 +823,7 @@ private func parseAntigravity(_ lines: [Substring], _ b: inout Builder) {
             guard !pending.isEmpty, o["status"] as? String != "RUNNING" else { continue }
             b.output(pending.removeFirst(), content)
         case "SYSTEM_MESSAGE":
-            // 别的会话或 AgentDock 通过接口发来的消息：当提问显示
+            // 别的会话或 Convoy 通过接口发来的消息：当提问显示
             for (i, t) in agyPushedMessages(content).enumerated() {
                 b.add(Item(id: "\(step)#msg\(i)", kind: "user", text: t, ts: ts))
             }

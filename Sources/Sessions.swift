@@ -76,7 +76,7 @@ struct Session: Identifiable, Equatable {
     var outputAt: Date?     // 最近一次有新输出的时间（判断未读）；没有单独记录时用 updated
     var waiting = false     // 在等你批准或回答（Claude 进程状态是 waiting）
     var asking = false      // 在等的是回答问题（waitingFor 是 “input needed”），不是批准
-    var nativeUnread = false // 原应用自己认为这条会话有未读（以原应用为准，和 AgentDock 双向同步）
+    var nativeUnread = false // 原应用自己认为这条会话有未读（以原应用为准，和 Convoy 双向同步）
     var pid: Int32?          // Claude：正在服务这条会话的进程（它退出时马上刷新）
 }
 
@@ -482,7 +482,7 @@ func scanAntigravity() -> [Session] {
     while sqlite3_step(st) == SQLITE_ROW {
         let cid = text(0)
         // 看板汇总临时开的对话，用完就删，不进列表
-        if text(1) == boardScratchTitle { continue }
+        if boardScratchTitles.contains(text(1)) { continue }
         let ws = (try? JSONSerialization.jsonObject(with: Data(text(5).utf8)) as? [String])?.first
         out.append(Session(id: "agy-" + cid, kind: .antigravity, rawId: cid,
                            transcript: home.appendingPathComponent(".gemini/antigravity/brain/\(cid)/.system_generated/logs/transcript_full.jsonl"),

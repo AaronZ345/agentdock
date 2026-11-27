@@ -86,7 +86,7 @@ final class Model: ObservableObject {
     func outputTime(_ s: Session) -> Date { s.outputAt ?? s.updated }
 
     /// 未读以原应用为准：原应用标着未读、没在跑、也不是正在看的这条。
-    /// 例外：你在 AgentDock 里看过最新输出、只是原应用还没来得及记成已读，就不算未读；
+    /// 例外：你在 Convoy 里看过最新输出、只是原应用还没来得及记成已读，就不算未读；
     /// 但如果是你在原应用里手动“标为未读”（没有新输出、原应用却从已读变成未读），照样算未读
     func isUnread(_ s: Session) -> Bool {
         guard !s.running, s.id != selectedId, s.nativeUnread else { return false }
@@ -98,7 +98,7 @@ final class Model: ObservableObject {
     private var prevNative: [String: Bool] = [:]
     private var markedRead: [String: Date] = [:]
 
-    /// 在 AgentDock 里看了：替你在原应用里也标成已读（原应用标着未读时才做）
+    /// 在 Convoy 里看了：替你在原应用里也标成已读（原应用标着未读时才做）
     private func markReadNative(_ s: Session) {
         guard !demoMode, s.nativeUnread, !s.running else { return }
         let t = outputTime(s)
@@ -213,6 +213,7 @@ final class Model: ObservableObject {
         }
         // 没授权时让系统弹出授权请求，按当前签名登记
         trusted = headless ? AXIsProcessTrusted() : AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
+        if !headless { log("launch \(Bundle.main.bundlePath) trusted=\(trusted)") }
         refresh()
         // 有变化才刷新：会话记录、状态库的文件一变，或 Claude 侧栏某一行变了（未读、在跑）
         for r in watchRoots() {

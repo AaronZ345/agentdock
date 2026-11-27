@@ -30,7 +30,7 @@ func enableWebAX(_ app: AXUIElement) {
     axSet(app, "AXEnhancedUserInterface", kCFBooleanTrue)
 }
 
-/// AgentDock --dump-ax <应用路径> <输出文件>：把应用所有窗口的界面树写到文件里
+/// Convoy --dump-ax <应用路径> <输出文件>：把应用所有窗口的界面树写到文件里
 func dumpAX(appPath: String, out: String) {
     guard let app = runningApp(appPath) else {
         try! "not running: \(appPath)\n".write(toFile: out, atomically: true, encoding: .utf8)

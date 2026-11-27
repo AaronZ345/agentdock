@@ -1,6 +1,6 @@
 import SwiftUI
 
-// 诊断模式：AgentDock --dump-ax <应用路径> <输出文件>，导出那个应用的界面树后退出
+// 诊断模式：Convoy --dump-ax <应用路径> <输出文件>，导出那个应用的界面树后退出
 let args = CommandLine.arguments
 if demoMode { headless = true }
 // 钩子：Claude Code / Codex 在你发消息、会话开始时调用，把这条会话所属项目的看板附进去
@@ -10,7 +10,7 @@ if let i = args.firstIndex(of: "--dump-ax"), args.count > i + 2 {
     exit(0)
 }
 
-// 测试模式：AgentDock --test-ask <会话 id> <回答 JSON：[{"labels":[...],"other":""}]>，在原应用里回答那组问题，结果写进 send-debug.log
+// 测试模式：Convoy --test-ask <会话 id> <回答 JSON：[{"labels":[...],"other":""}]>，在原应用里回答那组问题，结果写进 send-debug.log
 if let i = args.firstIndex(of: "--test-ask"), args.count > i + 2 {
     let s = scanSessions().first { $0.id == args[i + 1] }!
     let arr = (try? JSONSerialization.jsonObject(with: Data(args[i + 2].utf8))) as? [[String: Any]] ?? []
@@ -25,7 +25,7 @@ if let i = args.firstIndex(of: "--test-ask"), args.count > i + 2 {
     RunLoop.main.run()
 }
 
-// 测试模式：AgentDock --test-send <会话 id> <文字>，完整走一遍模拟发送但不回车，结果写进 send-debug.log
+// 测试模式：Convoy --test-send <会话 id> <文字>，完整走一遍模拟发送但不回车，结果写进 send-debug.log
 if let i = args.firstIndex(of: "--test-send"), args.count > i + 2 {
     let s = scanSessions().first { $0.id == args[i + 1] }!
     Task { @MainActor in
@@ -262,6 +262,7 @@ if args.contains("--test-check") {
 /// 点程序坞图标：窗口被关（藏起来）了就重新打开
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
+        if !headless { DispatchQueue.global(qos: .utility).async { migrateBoardHooks() } }
         if demoMode, let i = args.firstIndex(of: "--demo-shots"), args.count > i + 1 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 MainActor.assumeIsolated {
@@ -272,7 +273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         // 窗口收起来后要留在后台继续同步：不让系统把“没有窗口的应用”自动或突然结束掉
-        ProcessInfo.processInfo.disableAutomaticTermination("AgentDock 在后台同步会话")
+        ProcessInfo.processInfo.disableAutomaticTermination("Convoy 在后台同步会话")
         ProcessInfo.processInfo.disableSuddenTermination()
         // 点一下就生效：窗口不在前台时，系统默认只拿第一下点击来激活窗口，按钮要点第二下。
         // 在事件分发之前先把窗口设成前台主窗口，这一下照常交给被点的按钮、会话行
@@ -311,18 +312,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-struct AgentDockApp: App {
+struct ConvoyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var model = Model()
     @ObservedObject private var lang = LangStore.shared   // 菜单栏文字跟着语言变
 
     var body: some Scene {
-        Window("AgentDock", id: "main") {
+        Window("Convoy", id: "main") {
             RootView(model: model).frame(minWidth: 820, minHeight: 520)
         }
         .defaultSize(width: 1240, height: 820)
         .commands {
-            // 菜单栏：AgentDock → 语言 / Language；帮助 → 使用引导
+            // 菜单栏：Convoy → 语言 / Language；帮助 → 使用引导
             CommandGroup(after: .appSettings) {
                 Menu("语言 / Language") {
                     Button((lang.code == "zh" ? "✓ " : "") + "中文") { switchLanguage(to: "zh") }
@@ -336,4 +337,4 @@ struct AgentDockApp: App {
     }
 }
 
-AgentDockApp.main()
+ConvoyApp.main()

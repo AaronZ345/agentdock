@@ -1,7 +1,7 @@
 import Cocoa
 
 // 界面语言：中文（默认）或英文。启动时读一次，切换后重启应用生效。
-// 用法：tr("中文", "English")。只用于 AgentDock 自己的界面文案；
+// 用法：tr("中文", "English")。只用于 Convoy 自己的界面文案；
 // 匹配原应用界面的文字（Labels.swift）、写进数据里的内部取值（大类状态“进行中”、结论“有效”等）不要翻译
 
 let appLanguageKey = "appLanguage"
