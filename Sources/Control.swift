@@ -393,7 +393,72 @@ func readUsage() async -> [UsageApp] {
         }
         if !items.isEmpty { out.append(UsageApp(app: "Antigravity", appPath: "/Applications/Antigravity.app", items: items)) }
     }
-    if let app = runningApp(codexAppPath) {
+    // Codex：会话记录里每轮都写一份用量（rate_limits）。够新就直接用，不去点 Codex 的界面；
+    // 旧了再点侧栏“用量”菜单读；Codex 没开窗口（菜单不存在）时退回用记录里最后一次的数字
+    let fileUsage = codexUsageFromFiles()
+    if let f = fileUsage, Date().timeIntervalSince(f.at) < 30 * 60 {
+        out.append(UsageApp(app: "Codex", appPath: codexAppPath, items: f.items))
+    } else if let app = runningApp(codexAppPath), let items = await codexUsageFromUI(app), !items.isEmpty {
+        out.append(UsageApp(app: "Codex", appPath: codexAppPath, items: items))
+    } else if let f = fileUsage {
+        out.append(UsageApp(app: "Codex", appPath: codexAppPath, items: f.items))
+    }
+    return out
+}
+
+/// 从 ~/.codex/sessions 里最近写过的记录，取最后一条带 rate_limits 的事件
+func codexUsageFromFiles() -> (items: [UsageItem], at: Date)? {
+    let root = URL(fileURLWithPath: NSHomeDirectory() + "/.codex/sessions")
+    guard let e = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.contentModificationDateKey]) else { return nil }
+    var files: [(URL, Date)] = []
+    for case let u as URL in e where u.pathExtension == "jsonl" {
+        files.append((u, (try? u.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast))
+    }
+    for (u, _) in files.sorted(by: { $0.1 > $1.1 }).prefix(3) {
+        guard let h = try? FileHandle(forReadingFrom: u) else { continue }
+        defer { try? h.close() }
+        let size = (try? h.seekToEnd()) ?? 0
+        for chunk in [UInt64(512 << 10), 8 << 20] {
+            try? h.seek(toOffset: size > chunk ? size - chunk : 0)
+            guard let d = try? h.readToEnd(), let text = String(data: d, encoding: .utf8) else { break }
+            guard let line = text.split(separator: "\n").last(where: { $0.contains("\"rate_limits\":{") }),
+                  let obj = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any],
+                  let rl = (obj["payload"] as? [String: Any])?["rate_limits"] as? [String: Any] else {
+                if size <= chunk { break } else { continue }
+            }
+            let at = (obj["timestamp"] as? String).flatMap { isoFrac.date(from: $0) } ?? Date()
+            var items: [UsageItem] = []
+            for k in ["primary", "secondary"] {
+                guard let w = rl[k] as? [String: Any], let used = (w["used_percent"] as? NSNumber)?.doubleValue else { continue }
+                let mins = (w["window_minutes"] as? NSNumber)?.intValue ?? 0
+                let label = mins >= 7 * 24 * 60 ? tr("每周", "Weekly") : mins == 300 ? tr("5 小时", "5-hour") : tr("\(mins / 60) 小时", "\(mins / 60)-hour")
+                let reset = (w["resets_at"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) }
+                if let r = reset, r < Date() {   // 记录之后窗口已经重置过
+                    items.append(UsageItem(label: label, used: 0, note: tr("已重置", "Reset")))
+                } else {
+                    items.append(UsageItem(label: label, used: used / 100,
+                                           note: reset.map { tr(bjFormatter.string(from: $0) + " 重置", "Resets " + bjFormatter.string(from: $0)) } ?? ""))
+                }
+            }
+            if let c = rl["credits"] as? [String: Any], c["unlimited"] as? Bool != true,
+               let b = Double("\(c["balance"] ?? "")") {
+                items.append(UsageItem(label: tr("额度", "Credits"), used: nil, note: Int(b).formatted()))
+            }
+            return items.isEmpty ? nil : (items, at)
+        }
+    }
+    return nil
+}
+
+private let isoFrac: ISO8601DateFormatter = {
+    let f = ISO8601DateFormatter()
+    f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return f
+}()
+
+/// 点开 Codex 侧栏的“用量”菜单读完关掉（要 Codex 开着窗口）
+private func codexUsageFromUI(_ app: NSRunningApplication) async -> [UsageItem]? {
+    do {
         let ax = AXUIElementCreateApplication(app.processIdentifier)
         enableWebAX(ax)
         if let b = findButton(ax, { $0.role == "AXPopUpButton" && L.any($0.label, L.codexUsage) }) {
@@ -411,10 +476,10 @@ func readUsage() async -> [UsageApp] {
                 }
             }
             key(app.processIdentifier, 53)
-            if !items.isEmpty { out.append(UsageApp(app: "Codex", appPath: codexAppPath, items: items)) }
+            return items
         }
+        return nil
     }
-    return out
 }
 
 
