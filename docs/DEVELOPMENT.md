@@ -273,6 +273,7 @@ open -n -g build/AgentDock.app --args --test-unread
 - `--test-board [会话 id…|rebuild|ctx]`：不带参数列出最近 40 条会话；带 id 把这些会话马上汇总进看板（写入真实看板）；`rebuild` 把所有项目清空后从头汇总；`ctx` 只重写给钩子用的上下文文件和会话对照表。结果写进日志。
 - `--board-hook`：钩子入口，从标准输入读 Claude Code / Codex 的钩子事件。手动试：`echo '{"hook_event_name":"UserPromptSubmit","session_id":"<会话 id>"}' | AgentDock --board-hook`。
 - `--demo-shots <目录>`：用编出来的演示会话和项目把界面跑起来，截 README 用的图（主窗口、看板总览、项目详情、引导）。完整窗口截图要给 AgentDock 开“屏幕录制”权限。
+- `--demo-shots <目录> --demo-gif`：按分镜录 README 顶上的动图（会话列表 → 在这里回复 → 回答提问卡片 → 看板），每帧下面加一行说明，输出 `<目录>/demo.gif`。录制时窗口要在前台（被挡住时网页不重画），所以先退出常驻的 AgentDock，再用 `open /Applications/AgentDock.app --args --demo-shots <目录> --demo-gif --lang zh` 启动（不要加 `-n`，否则拿不到前台）。演示模式不会去原应用里切会话、标已读。
 - `--test-press <应用路径> <按钮名>…`：用辅助功能依次按下那个应用里的按钮或菜单项（`type=文字` 往输入框里填字），测 AgentDock 自己的界面时用。
 - `--test-board-render <目录>`：把看板总览和每个项目的看板（大类全展开）离屏画成 PNG（下拉框、开关这类系统控件画不出来，显示成黄色占位）。
 - `--dump-ax` 导出的每个节点带网页的 class（`c=`），找原应用界面元素时用。

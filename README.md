@@ -32,7 +32,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license Apache-2.0"></a>
 </p>
 
-![AgentDock main window](docs/images/en/main.png)
+![AgentDock demo: sessions from three apps in one list, replying, answering a question card, and the project board](docs/images/en/demo.gif)
 
 > Available in English and Simplified Chinese. Switch on the welcome page; Chinese is the default.
 

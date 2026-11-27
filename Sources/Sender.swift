@@ -316,6 +316,7 @@ func composerValue(_ c: AXUIElement) -> String { (axGet(c, kAXValueAttribute) as
 
 /// 后台切到这条会话：已经是当前会话就不动；否则按侧栏按钮。返回窗口和输入框
 func navigateQuietly(_ ax: AXUIElement, _ s: Session) async -> (win: AXUIElement, composer: AXUIElement)? {
+    if demoMode { return nil }   // 演示模式不碰真实的原应用
     if let t = findTarget(ax, s) { return t }
     guard let b = sidebarButton(ax, s) else { return nil }
     AXUIElementPerformAction(b, kAXPressAction as CFString)

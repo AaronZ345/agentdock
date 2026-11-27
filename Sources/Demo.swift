@@ -7,6 +7,10 @@ import WebKit
 
 let demoMode = CommandLine.arguments.contains("--demo-shots")
 var demoModelRef: Model?
+/// 再加 --demo-gif：录 README 顶上那段动图（按分镜截一串画面，拼成 demo.gif）
+let demoGif = CommandLine.arguments.contains("--demo-gif")
+/// 动图里“发出去”的消息和 agent 接着做的事：追加到对应会话的详情后面
+var demoExtra: [String: [Item]] = [:]
 
 private let demoDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("agentdock-demo")
 private func ago(_ min: Double) -> Date { Date().addingTimeInterval(-min * 60) }
@@ -23,17 +27,17 @@ private let claudeApp = claudeAppPath, codexApp = codexAppPath, agyApp = "/Appli
 
 func demoSessions() -> [Session] {
     func s(_ id: String, _ kind: Kind, _ app: String, _ path: String, _ title: String, _ project: String, _ min: Double,
-           running: Bool = false, unread: Bool = false, waiting: Bool = false, model: String, perm: String) -> Session {
+           running: Bool = false, unread: Bool = false, waiting: Bool = false, asking: Bool = false, model: String, perm: String) -> Session {
         var x = Session(id: id, kind: kind, rawId: id, transcript: demoFile(id), app: app, title: title, project: project,
                         running: running, updated: ago(min), link: nil, appPath: path)
         x.cwd = "/Users/demo/code/" + project
-        x.model = model; x.perm = perm; x.waiting = waiting; x.nativeUnread = unread
+        x.model = model; x.perm = perm; x.waiting = waiting; x.asking = asking; x.nativeUnread = unread
         return x
     }
     return [
         s("demo-checkout", .claude, "Claude", claudeApp, tr("结账页改成单页流程", "Make checkout a single page"), "shop-web", 1, running: true, model: tr("Opus 5.5 高", "Opus 5.5 High"), perm: tr("接受编辑", "Accept edits")),
         s("demo-cache", .codex, "Codex", codexApp, tr("订单接口加缓存", "Cache the order API"), "shop-api", 3, running: true, model: tr("GPT-6.2 高", "GPT-6.2 High"), perm: tr("自动", "Auto")),
-        s("demo-stock", .claude, "Claude", claudeApp, tr("修复购物车并发扣库存", "Fix concurrent stock deduction"), "shop-api", 12, unread: true, model: tr("Opus 5.5 高", "Opus 5.5 High"), perm: tr("手动", "Ask")),
+        s("demo-stock", .claude, "Claude", claudeApp, tr("修复购物车并发扣库存", "Fix concurrent stock deduction"), "shop-api", 12, unread: true, waiting: true, asking: true, model: tr("Opus 5.5 高", "Opus 5.5 High"), perm: tr("手动", "Ask")),
         s("demo-push", .antigravity, "Antigravity", agyApp, tr("iOS 推送集成", "iOS push notifications"), "shop-ios", 25, waiting: true, model: "Gemini 4 Neon", perm: "Default"),
         s("demo-report", .codex, "Codex", codexApp, tr("周报数据看板", "Weekly metrics dashboard"), "analytics", 48, unread: true, model: tr("GPT-6.2 中", "GPT-6.2 Medium"), perm: tr("自动", "Auto")),
         s("demo-a11y", .claude, "Claude", claudeApp, tr("登录页无障碍改进", "Login page accessibility"), "shop-web", 95, model: "Sonnet 5.5", perm: tr("接受编辑", "Accept edits")),
@@ -43,7 +47,23 @@ func demoSessions() -> [Session] {
     ]
 }
 
+func demoTool(_ id: String, _ name: String, _ verb: String, _ target: String, _ out: String, _ min: Double, cat: String = "cmd", done: Bool = true) -> Item {
+    var t = Item(id: id, kind: "tool", name: name, verb: verb, summary: target, input: target, output: out, done: done, ts: iso(min))
+    t.cat = cat
+    return t
+}
+
 func demoDetail(_ s: Session) -> Detail {
+    if s.id == "demo-stock" {
+        var d = Detail(items: [Item(id: "s-u", kind: "user", text: tr("大促时偶尔超卖，查一下购物车扣库存。", "We occasionally oversell during sales. Look into how the cart deducts stock."), ts: iso(20)),
+                               demoTool("s1", "Grep", tr("搜索", "Search"), "deductStock", "src/services/stock.ts", 19, cat: "search"),
+                               Item(id: "s-a", kind: "assistant", text: tr("找到原因了：先查库存再扣减是两步，两笔订单同时进来会都查到“有货”。压测 200 并发复现了 3 次超卖。修法有两种，需要你选一下。", "Found it: checking stock and deducting it are two separate steps, so two orders arriving together both see “in stock”. A 200-concurrency load test reproduced 3 oversells. There are two ways to fix it; please pick one."), ts: iso(13))],
+                       tasks: [], suggestion: nil, plan: [])
+        d.ask = PendingAsk(id: "demo-ask", questions: [AskQ(question: tr("库存扣减用哪种方案？", "How should stock be deducted?"), header: tr("修复方案", "Fix"), multiSelect: false, options: [
+            AskOption(label: tr("数据库行锁", "Database row lock"), description: tr("改动小，大促高峰可能排队", "Small change; may queue up at peak")),
+            AskOption(label: tr("Redis 原子扣减", "Atomic Redis decrement"), description: tr("扛得住大促，需要和数据库对账", "Handles peak traffic; needs reconciliation with the database"))])])
+        return d
+    }
     guard s.id == "demo-checkout" else {
         return Detail(items: [Item(id: s.id + "-u", kind: "user", text: s.title, ts: iso(30)),
                               Item(id: s.id + "-a", kind: "assistant", text: tr("好的，我先看一下相关代码。", "Sure, let me look at the relevant code first."), ts: iso(29))],
@@ -53,18 +73,14 @@ func demoDetail(_ s: Session) -> Detail {
         Item(id: "u1", kind: "user", text: tr("结账现在要走 3 个页面，流失很多。改成单页：地址、配送、支付放在一页，地址填完自动算运费。", "Checkout takes 3 pages and we lose a lot of people. Make it one page: address, shipping and payment together, and calculate shipping as soon as the address is filled in."), ts: iso(42)),
         Item(id: "t1", kind: "thinking", text: tr("先找到现有的三个结账页面和它们之间传的数据，再决定合并后的组件结构。", "First find the three checkout pages and the data passed between them, then decide the merged component structure."), ts: iso(41)),
     ]
-    func tool(_ id: String, _ name: String, _ verb: String, _ target: String, _ out: String, _ min: Double, cat: String = "cmd") -> Item {
-        var t = Item(id: id, kind: "tool", name: name, verb: verb, summary: target, input: target, output: out, done: true, ts: iso(min))
-        t.cat = cat
-        return t
-    }
+    let tool = { (id: String, name: String, verb: String, target: String, out: String, min: Double, cat: String) in demoTool(id, name, verb, target, out, min, cat: cat) }
     items += [
-        tool("c1", "Grep", tr("搜索", "Search"), "checkout", "src/pages/checkout/Address.tsx\nsrc/pages/checkout/Shipping.tsx\nsrc/pages/checkout/Payment.tsx", 41, cat: "search"),
-        tool("c2", "Read", tr("读取", "Read"), "Shipping.tsx", tr("（212 行）", "(212 lines)"), 40, cat: "read"),
+        tool("c1", "Grep", tr("搜索", "Search"), "checkout", "src/pages/checkout/Address.tsx\nsrc/pages/checkout/Shipping.tsx\nsrc/pages/checkout/Payment.tsx", 41, "search"),
+        tool("c2", "Read", tr("读取", "Read"), "Shipping.tsx", tr("（212 行）", "(212 lines)"), 40, "read"),
         Item(id: "n1", kind: "note", text: tr("三个页面之间靠 URL 参数传地址 id，运费在第二页才请求。合并后改成一个表单状态，地址变化时防抖请求运费。", "The pages pass the address id through URL parameters, and shipping is only requested on page two. After merging, one form state; shipping is requested (debounced) whenever the address changes."), ts: iso(39)),
-        tool("c3", "Edit", tr("编辑文件", "Edit file"), "src/pages/checkout/Checkout.tsx", "", 30, cat: "edit"),
-        tool("c4", "Edit", tr("编辑文件", "Edit file"), "src/api/shipping.ts", "", 26, cat: "edit"),
-        tool("c5", "Bash", tr("运行命令", "Run command"), "npm test -- checkout", "PASS  checkout/Checkout.test.tsx (14 tests)\nTests: 14 passed, 14 total", 20),
+        tool("c3", "Edit", tr("编辑文件", "Edit file"), "src/pages/checkout/Checkout.tsx", "", 30, "edit"),
+        tool("c4", "Edit", tr("编辑文件", "Edit file"), "src/api/shipping.ts", "", 26, "edit"),
+        tool("c5", "Bash", tr("运行命令", "Run command"), "npm test -- checkout", "PASS  checkout/Checkout.test.tsx (14 tests)\nTests: 14 passed, 14 total", 20, "cmd"),
     ]
     var end = Item(id: "e1", kind: "turnend", text: "x", ts: iso(19), took: 23 * 60 * 1000)
     end.files = [FileStat(path: "src/pages/checkout/Checkout.tsx", kind: "add", add: 186, del: 0),
@@ -90,8 +106,9 @@ func demoDetail(_ s: Session) -> Detail {
         """), ts: iso(19)),
         end,
         Item(id: "u2", kind: "user", text: tr("可以，再把优惠券输入也放进来，放在支付上面。", "Looks good. Add the coupon field too, above payment."), ts: iso(3)),
-        tool("c6", "Read", tr("读取", "Read"), "Coupon.tsx", tr("（88 行）", "(88 lines)"), 2, cat: "read"),
+        tool("c6", "Read", tr("读取", "Read"), "Coupon.tsx", tr("（88 行）", "(88 lines)"), 2, "read"),
     ]
+    items += demoExtra[s.id] ?? []
     var d = Detail(items: items, tasks: [], suggestion: nil,
                    plan: [PlanItem(content: tr("找到优惠券组件和校验接口", "Find the coupon component and validation API"), status: "completed"),
                           PlanItem(content: tr("放进结账页、接上金额重算", "Add it to checkout and recalculate totals"), status: "in_progress"),
@@ -169,8 +186,16 @@ func runDemoShots(_ model: Model, out: String) {
         return
     }
     if let w = NSApp.windows.first(where: { $0.frame.width > 600 }) {
-        w.setContentSize(NSSize(width: 1320, height: 840))
+        w.setContentSize(demoGif ? NSSize(width: 1180, height: 740) : NSSize(width: 1320, height: 840))
         w.center()
+    }
+    if demoGif, let w = NSApp.windows.first(where: { $0.frame.width > 600 }) {
+        // 窗口被别的窗口挡住时网页不重画、截出来是空的：录制期间放到最前面
+        NSApp.activate()
+        NSRunningApplication.current.activate(options: [.activateAllWindows])
+        w.level = .floating
+        w.makeKeyAndOrderFront(nil)
+        runDemoGif(model, out: out); return
     }
     model.mode = .project
     DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -193,4 +218,120 @@ func runDemoShots(_ model: Model, out: String) {
             }
         }
     }
+}
+
+// MARK: 动图（README 顶上那段）：按分镜截画面，每帧下面加一行说明，拼成 demo.gif
+
+private struct GifFrame { let file: String; let delay: Double; let caption: String }
+
+private func jsString(_ s: String) -> String {
+    String(decoding: try! JSONSerialization.data(withJSONObject: s, options: .fragmentsAllowed), as: UTF8.self)
+}
+
+@MainActor
+private func runDemoGif(_ model: Model, out: String) {
+    let dir = NSTemporaryDirectory() + "agentdock-gif-frames"
+    try? FileManager.default.removeItem(atPath: dir)
+    try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+    var frames: [GifFrame] = []
+    var scale = 0.5
+    func shot(_ delay: Double, _ caption: String) {
+        guard let w = NSApp.windows.first(where: { $0.isVisible && $0.frame.width > 700 }) else {
+            log("demo gif: no window " + NSApp.windows.map { "\($0.isVisible) \(Int($0.frame.width))" }.joined(separator: ", ")); return
+        }
+        scale = 1 / w.backingScaleFactor
+        let f = dir + String(format: "/f%02d.png", frames.count)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        p.arguments = ["-x", "-o", "-l", "\(w.windowNumber)", f]
+        try? p.run(); p.waitUntilExit()
+        frames.append(GifFrame(file: f, delay: delay, caption: caption))
+    }
+    func wait(_ s: Double) async { try? await Task.sleep(nanoseconds: UInt64(s * 1e9)) }
+    func js(_ code: String) { model.chat.web.evaluateJavaScript(code) }
+    func reselect(_ id: String) { if let s = model.sessions.first(where: { $0.id == id }) { model.chat.select(s) } }
+    func type(_ t: String) { js("(()=>{const i=document.getElementById('input');i.value=\(jsString(t));i.dispatchEvent(new Event('input'));i.focus()})()") }
+
+    Task { @MainActor in
+        if let w = NSApp.windows.first(where: { $0.frame.width > 700 }) { NSApp.activate(); w.makeKeyAndOrderFront(nil) }
+        await wait(0.5)
+        log("demo gif: active=\(NSApp.isActive) key=\(NSApp.keyWindow != nil)")
+        // 1. 三家的会话在一个列表里
+        let c1 = tr("Claude、Codex、Antigravity 的会话，都在一个窗口里", "Claude, Codex and Antigravity sessions, all in one window")
+        model.mode = .time
+        await wait(1.5)
+        model.selectedId = "demo-checkout"
+        await wait(2.5)
+        shot(2.8, c1)
+        // 2. 直接在这里回复
+        let c2 = tr("直接在这里回复，不用切换应用", "Reply right here, no app switching")
+        let msg = tr("顺便把优惠后的金额显示在订单摘要里", "Also show the discounted total in the order summary")
+        let n = 6
+        for k in 1...n {
+            type(String(msg.prefix(msg.count * k / n)))
+            await wait(0.3)
+            shot(k == n ? 0.9 : 0.15, c2)
+        }
+        type("")
+        demoExtra["demo-checkout"] = [Item(id: "u3", kind: "user", text: msg, ts: iso(0))]
+        reselect("demo-checkout")
+        await wait(1.2)
+        shot(1.0, c2)
+        demoExtra["demo-checkout"]! += [demoTool("c7", "Edit", tr("编辑文件", "Edit file"), "src/pages/checkout/OrderSummary.tsx", "", 0, cat: "edit", done: false)]
+        reselect("demo-checkout")
+        await wait(1.2)
+        shot(1.8, c2)
+        // 3. agent 提问，点一下回答
+        let c3 = tr("agent 提问时，点一下就能回答", "When an agent asks a question, answer with one click")
+        model.selectedId = "demo-stock"
+        await wait(2.2)
+        shot(1.8, c3)
+        js("document.querySelector('[data-ask=\"0:1\"]').click()")
+        await wait(0.6)
+        shot(2.0, c3)
+        // 4. 项目看板
+        let c4 = tr("项目看板：每个项目的目标和进度一目了然", "Project board: every project's goal and progress at a glance")
+        model.board = ""
+        await wait(1.8)
+        shot(2.6, c4)
+        model.board = model.boards.projects.first?.id
+        await wait(1.8)
+        shot(3.4, c4)
+        writeGif(frames, scale: scale, to: out + "/demo.gif")
+        log("demo gif \(frames.count) frames")
+        exit(0)
+    }
+}
+
+private func writeGif(_ frames: [GifFrame], scale: Double, to path: String) {
+    func load(_ f: String) -> CGImage? {
+        guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: f) as CFURL, nil) else { return nil }
+        return CGImageSourceCreateImageAtIndex(src, 0, nil)
+    }
+    guard let first = frames.first.flatMap({ load($0.file) }) else { return }
+    let bar = 54
+    let W = Int(Double(first.width) * scale), H0 = Int(Double(first.height) * scale), H = H0 + bar
+    try? FileManager.default.removeItem(atPath: path)
+    guard let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "com.compuserve.gif" as CFString, frames.count, nil) else { return }
+    CGImageDestinationSetProperties(dest, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary)
+    for f in frames {
+        guard let img = load(f.file),
+              let ctx = CGContext(data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { continue }
+        ctx.interpolationQuality = .high
+        ctx.setFillColor(CGColor(red: 0.12, green: 0.13, blue: 0.16, alpha: 1)); ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))   // 窗口圆角外和说明条同色
+        ctx.draw(img, in: CGRect(x: 0, y: bar, width: W, height: H0))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
+        let para = NSMutableParagraphStyle(); para.alignment = .center
+        let str = NSAttributedString(string: f.caption, attributes: [.font: NSFont.systemFont(ofSize: 21, weight: .semibold),
+                                                                     .foregroundColor: NSColor.white, .paragraphStyle: para])
+        let h = str.size().height
+        str.draw(in: CGRect(x: 0, y: (Double(bar) - h) / 2, width: Double(W), height: h))
+        NSGraphicsContext.restoreGraphicsState()
+        guard let out = ctx.makeImage() else { continue }
+        CGImageDestinationAddImage(dest, out, [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFDelayTime: f.delay,
+                                                                              kCGImagePropertyGIFUnclampedDelayTime: f.delay]] as CFDictionary)
+    }
+    CGImageDestinationFinalize(dest)
 }

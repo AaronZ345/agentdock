@@ -100,7 +100,7 @@ final class Model: ObservableObject {
 
     /// 在 AgentDock 里看了：替你在原应用里也标成已读（原应用标着未读时才做）
     private func markReadNative(_ s: Session) {
-        guard s.nativeUnread, !s.running else { return }
+        guard !demoMode, s.nativeUnread, !s.running else { return }
         let t = outputTime(s)
         if let m = markedRead[s.id], m >= t { return }   // 这次输出已经标过
         markedRead[s.id] = t

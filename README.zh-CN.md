@@ -32,7 +32,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-green" alt="license Apache-2.0"></a>
 </p>
 
-![AgentDock 主界面](docs/images/main.png)
+![AgentDock 演示：三个应用的会话在一个列表里、直接回复、回答提问卡片、项目看板](docs/images/demo.gif)
 
 > 界面支持中文和英文，默认中文，可以在首页切换。
 
