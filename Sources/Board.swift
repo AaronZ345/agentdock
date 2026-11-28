@@ -1123,7 +1123,8 @@ private func boardHookGroup(_ command: String) -> JSONValue {
 /// createIfMissing：文件不存在时要不要新建；now：备份文件名里的时间（测试时传固定的）
 func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing: Bool, now: Date = Date()) -> HookFileOutcome {
     let fm = FileManager.default
-    let url = URL(fileURLWithPath: f)
+    // 配置文件可能是个链接（dotfiles 之类）：读写都对着链接指向的那个文件，权限也取它的
+    let url = URL(fileURLWithPath: f).resolvingSymlinksInPath()
     let exists = fm.fileExists(atPath: f)
     guard exists || createIfMissing else { return .unchanged }
     let data: Data
@@ -1133,8 +1134,8 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
     } else {
         data = Data()
     }
-    // 空文件当成还没有任何设置
-    let original = String(decoding: data, as: UTF8.self)
+    // 解不成 UTF-8 的文件不动，不然写回去时坏字节会被换成乱码；空文件当成还没有任何设置
+    guard let original = String(data: data, encoding: .utf8) else { return .skipped }
     guard let root = try? JSONValue.parse(original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "{}" : original),
           root.objectPairs != nil else { return .skipped }
     var newRoot = root
@@ -1155,7 +1156,7 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
         try? fm.copyItem(atPath: f, toPath: latest)
         pruneBackups(of: f)
     }
-    let mode = exists ? (try? fm.attributesOfItem(atPath: f))?[.posixPermissions] as? Int : nil
+    let mode = exists ? (try? fm.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int : nil
     func restore() {
         if exists {
             try? data.write(to: url, options: .atomic)
@@ -1172,7 +1173,8 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
         return .failed(error.localizedDescription)
     }
     // 核对：重新读一遍，和要写的内容一致才算数
-    guard let back = try? Data(contentsOf: url), (try? JSONValue.parse(String(decoding: back, as: UTF8.self))) == newRoot else {
+    guard let back = try? Data(contentsOf: url), let text = String(data: back, encoding: .utf8),
+          (try? JSONValue.parse(text)) == newRoot else {
         restore()
         return .failed(tr("写进去的内容核对不上", "the file didn't read back as written"))
     }

@@ -56,7 +56,8 @@ func testJSONValueEscapes() {
 
 func testJSONValueRejectsInvalid() {
     for bad in ["", "{", "{\"a\":}", "{\"a\":1} x", "[1,]", "'a'", "nul", "{\"a\":\\ud800}", "{\"a\" 1}", "[\"\\u12",
-                "{\"n\":1e+}", "{\"n\":01}", "{\"n\":-01}", "{\"n\":-}", "{\"n\":.5}", "{\"n\":+1}", "{\"n\":1.}", "{\"n\":1e}", "{\"n\":1.5.3}"] {
+                "{\"n\":1e+}", "{\"n\":01}", "{\"n\":-01}", "{\"n\":-}", "{\"n\":.5}", "{\"n\":+1}", "{\"n\":1.}", "{\"n\":1e}", "{\"n\":1.5.3}",
+                "{\"a\":\"\t\"}", "{\"a\":\"\n\"}", "{\"a\":\"\u{0}\"}"] {
         expect(!((try? JSONValue.parse(bad)) != nil), "不该当成合法 JSON：\(bad)")
     }
 }
@@ -232,4 +233,28 @@ func testBoardHooksDuplicateHooksKey() {
     let v = parse(f)
     expectEq(v.objectPairs?.count, 1, "只剩一个 hooks")
     expectEq(commands(v, "SessionStart"), [hookCommand], "钩子在")
+}
+
+func testBoardHooksSkipInvalidUTF8() {
+    // 值里有一个坏字节：不动这个文件，不然写回去时会被换成乱码
+    let f = tempDir().appendingPathComponent("settings.json").path
+    let bytes = Data([0x7b, 0x22, 0x61, 0x22, 0x3a, 0x22, 0xff, 0x22, 0x7d])
+    try! bytes.write(to: URL(fileURLWithPath: f))
+    expectEq(updateBoardHooks(file: f, on: true, command: hookCommand, createIfMissing: false), .skipped, "解不成 UTF-8 就不动")
+    expectEq(try! Data(contentsOf: URL(fileURLWithPath: f)), bytes, "原样")
+}
+
+func testBoardHooksFollowSymlinks() {
+    let dir = tempDir()
+    let real = dir.appendingPathComponent("real-settings.json").path
+    try! Data("{\"a\": 1}".utf8).write(to: URL(fileURLWithPath: real))
+    try! FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: real)
+    let link = dir.appendingPathComponent("settings.json").path
+    try! FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: real)
+    lchmod(link, 0o777)
+    expectEq(updateBoardHooks(file: link, on: true, command: hookCommand, createIfMissing: false), .changed, "装上了")
+    expectEq(try! FileManager.default.destinationOfSymbolicLink(atPath: link), real, "链接还是链接，没被换成普通文件")
+    expectEq(try! FileManager.default.attributesOfItem(atPath: real)[.posixPermissions] as? Int, 0o600, "权限取的是真正那个文件的")
+    let v = try! JSONValue.parse(try! String(contentsOfFile: real, encoding: .utf8))
+    expectEq(commands(v, "SessionStart"), [hookCommand], "内容写进了真正的文件")
 }

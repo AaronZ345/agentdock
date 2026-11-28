@@ -161,7 +161,11 @@ private struct JSONParser {
         while i < b.count {
             let c = b[i]
             if c == 0x22 { i += 1; return String(decoding: out, as: UTF8.self) }
-            if c != 0x5c { out.append(c); i += 1; continue }
+            if c != 0x5c {
+                // 字符串里不能直接出现控制字符，制表、换行这些得写成转义
+                guard c >= 0x20 else { throw JSONTextError.invalid("字符串里有没转义的控制字符") }
+                out.append(c); i += 1; continue
+            }
             i += 1
             guard !atEnd else { break }
             switch b[i] {
