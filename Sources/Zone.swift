@@ -10,9 +10,12 @@ private final class SystemZone {
     init() {
         // 通知到了只把缓存放掉，下次用到时再重新读
         NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: nil) { [weak self] _ in
-            guard let self else { return }
-            self.lock.lock(); self.zone = nil; self.lock.unlock()
+            self?.invalidate()
         }
+    }
+
+    func invalidate() {
+        lock.lock(); zone = nil; lock.unlock()
     }
 
     func current() -> TimeZone {
@@ -26,6 +29,11 @@ private final class SystemZone {
 
 private let systemZone = SystemZone()
 var appZone: TimeZone { systemZone.current() }
+
+/// 系统时区变了：把缓存放掉，下次用到时重新读。给聊天页换时区之前先调它，不靠两个通知到达的先后顺序
+func systemTimeZoneDidChange() {
+    systemZone.invalidate()
+}
 
 private func resolveSystemZone() -> TimeZone {
     guard let target = try? FileManager.default.destinationOfSymbolicLink(atPath: "/etc/localtime"),

@@ -529,9 +529,14 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         super.init()
         cfg.userContentController.add(self, name: "ad")
         cfg.userContentController.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        // 切换语言、系统时区变了：换掉注入的语言和时区、重新加载聊天页（加载完会把当前会话再推一遍）
-        for name in [Notification.Name.languageChanged, .NSSystemTimeZoneDidChange] {
-            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.reloadPage() }
+        // 切换语言：换掉注入的语言、重新加载聊天页（加载完会把当前会话再推一遍）
+        NotificationCenter.default.addObserver(forName: .languageChanged, object: nil, queue: .main) { [weak self] _ in self?.reloadPage() }
+        // 系统时区变了：先把缓存的时区放掉，再让页面原地换时区、重画时间。
+        // 不重新加载页面，没发出去的草稿和附件要留着
+        NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in
+            systemTimeZoneDidChange()
+            guard let self else { return }
+            self.js("AD.setTimezone(\(self.jsonString([appZone.identifier])))")
         }
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")

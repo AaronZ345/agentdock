@@ -14,3 +14,9 @@ func testAppZoneSurvivesTimeZoneChangeNotification() {
     NotificationCenter.default.post(name: .NSSystemTimeZoneDidChange, object: nil)
     expectEq(appZone.identifier, before, "收到通知后重新读一遍，读到的还是同一个")
 }
+
+func testSystemTimeZoneDidChangeKeepsZoneUsable() {
+    let before = appZone.identifier
+    systemTimeZoneDidChange()
+    expectEq(appZone.identifier, before, "放掉缓存后重新读，还是同一个")
+}
