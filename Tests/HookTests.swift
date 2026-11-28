@@ -257,4 +257,24 @@ func testBoardHooksFollowSymlinks() {
     expectEq(try! FileManager.default.attributesOfItem(atPath: real)[.posixPermissions] as? Int, 0o600, "权限取的是真正那个文件的")
     let v = try! JSONValue.parse(try! String(contentsOfFile: real, encoding: .utf8))
     expectEq(commands(v, "SessionStart"), [hookCommand], "内容写进了真正的文件")
+    // 备份里是改动前的内容，不是指向它的链接
+    let first = try! JSONValue.parse(try! String(contentsOfFile: link + ".agentdock-backup", encoding: .utf8))
+    expectEq(first["hooks"], nil, "第一次的备份里还没有钩子")
+    expect((try? FileManager.default.destinationOfSymbolicLink(atPath: link + ".agentdock-backup")) == nil, "备份不是链接")
+}
+
+func testBoardHooksPrunesOldestRevisionsFirst() {
+    let f = hookFile("settings.json", "{}")
+    let dir = (f as NSString).deletingLastPathComponent
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    for i in 0...11 {
+        // 每次改动前文件里带着自己的序号，备份里就能看出是第几版
+        var v = try! JSONValue.parse(read(f))
+        v.set("rev", .number(String(i)))
+        try! Data(v.text.utf8).write(to: URL(fileURLWithPath: f))
+        expectEq(updateBoardHooks(file: f, on: i % 2 == 0, command: hookCommand, createIfMissing: false, now: now), .changed, "第 \(i) 次改动")
+    }
+    let stamped = backups(of: f).filter { $0.hasPrefix("settings.json.agentdock-backup-") }
+    let revs = stamped.map { Int(try! JSONValue.parse(try! String(contentsOfFile: dir + "/" + $0, encoding: .utf8))["rev"]?.text ?? "") ?? -1 }.sorted()
+    expectEq(revs, Array(2...11), "同一秒里改了 12 次，留的是最近 10 版改动前的内容")
 }

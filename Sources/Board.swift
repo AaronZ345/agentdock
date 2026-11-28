@@ -1142,21 +1142,22 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
     guard applyBoardHooks(&newRoot, on: on, command: command) else { return .unchanged }
 
     // 改之前备份：第一次的那份 .agentdock-backup 一直留着，之后每次改动再留一份带时间的。
-    // 同一秒里改了好几次就在后面加序号，不覆盖上一次改动前的那份
+    // 同一秒里改了好几次就在后面加两位序号，不覆盖上一次改动前的那份
     let stamp = f + ".agentdock-backup-" + backupStamp.string(from: now)
     var latest = stamp
     var n = 2
     while fm.fileExists(atPath: latest) {
-        latest = stamp + "-" + String(n)
+        latest = stamp + "-" + String(format: "%02d", n)
         n += 1
     }
+    let mode = exists ? (try? fm.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int : nil
     if exists {
+        // 备份里写的是改动前读到的内容。不复制文件本身：配置是个链接时复制出来的是链接，会跟着变
         let first = f + ".agentdock-backup"
-        if !fm.fileExists(atPath: first) { try? fm.copyItem(atPath: f, toPath: first) }
-        try? fm.copyItem(atPath: f, toPath: latest)
+        if !fm.fileExists(atPath: first) { writeBackup(data, to: first, mode: mode) }
+        writeBackup(data, to: latest, mode: mode)
         pruneBackups(of: f)
     }
-    let mode = exists ? (try? fm.attributesOfItem(atPath: url.path))?[.posixPermissions] as? Int : nil
     func restore() {
         if exists {
             try? data.write(to: url, options: .atomic)
@@ -1181,12 +1182,23 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
     return .changed
 }
 
-/// 带时间的备份只留最近 backupKeep 份
+/// 把改动前的内容写成一份备份，权限和原文件一样
+private func writeBackup(_ data: Data, to path: String, mode: Int?) {
+    let fm = FileManager.default
+    guard fm.createFile(atPath: path, contents: data, attributes: [.posixPermissions: mode ?? 0o644]) else { return }
+    if let mode { try? fm.setAttributes([.posixPermissions: mode], ofItemAtPath: path) }
+}
+
+/// 带时间的备份只留最近 backupKeep 份，按创建时间的先后删最旧的
 private func pruneBackups(of f: String) {
-    let dir = (f as NSString).deletingLastPathComponent
+    let fm = FileManager.default
+    let dir = URL(fileURLWithPath: (f as NSString).deletingLastPathComponent)
     let prefix = (f as NSString).lastPathComponent + ".agentdock-backup-"
-    let olds = ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasPrefix(prefix) }.sorted()
-    for name in olds.dropLast(backupKeep) { try? FileManager.default.removeItem(atPath: dir + "/" + name) }
+    let olds = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey])) ?? []).filter { $0.lastPathComponent.hasPrefix(prefix) }
+    let dated = (try? olds.map { (url: $0, created: try $0.resourceValues(forKeys: [.creationDateKey]).creationDate ?? .distantPast) }) ?? []
+    for (url, _) in dated.sorted { $0.created == $1.created ? $0.url.path < $1.url.path : $0.created < $1.created }.dropLast(backupKeep) {
+        try? fm.removeItem(at: url)
+    }
 }
 
 /// 装上 / 摘掉钩子：Claude Code（~/.claude/settings.json，以及本机配置里额外 Claude 各账号的 settings.json）、Codex（~/.codex/hooks.json）。
