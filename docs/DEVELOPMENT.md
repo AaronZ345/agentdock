@@ -107,7 +107,7 @@ iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
   - 命令显示实际执行的那一行，MCP 调用显示它自带的标题。
   - 回复后面有「已编辑 N 个文件 +a −b」卡片，点开看文件列表。
   - 用户消息和每轮结束都标时间，跨天有日期分隔线。
-- **时间**：全应用按系统时区显示（`Zone.swift` 的 `appZone`，从 `/etc/localtime` 读；聊天页由 Swift 注入 `window.AD_TZ`），不受 `TZ` 环境变量影响：从终端带着 `TZ` 启动时 `TimeZone.current` 会跟着变，显示的时间就和系统时钟对不上。
+- **时间**：全应用按系统时区显示（`Zone.swift` 的 `appZone`，从 `/etc/localtime` 读；聊天页由 Swift 注入 `window.AD_TZ`），不受 `TZ` 环境变量影响：从终端带着 `TZ` 启动时 `TimeZone.current` 会跟着变，显示的时间就和系统时钟对不上。系统时区在运行中变了（出差、改设置）会收到 `NSSystemTimeZoneDidChange`，`appZone` 重新读，聊天页重新加载。
 - **步骤**
   - 连续的工具调用和思考默认折叠成一行摘要，比如“已处理 2 分 · 6 个步骤 · 运行命令 ×4、读取 ×2”。
   - Codex 的过程说明也收在里面，只露出最终回复。

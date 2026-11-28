@@ -8,3 +8,9 @@ func testZoneIdentifier() {
     expect(zoneIdentifier(fromLocaltimeTarget: "/var/db/timezone/zoneinfo/") == nil, "空的")
     expect(TimeZone(identifier: appZone.identifier) != nil, "appZone 是一个认得的时区")
 }
+
+func testAppZoneSurvivesTimeZoneChangeNotification() {
+    let before = appZone.identifier
+    NotificationCenter.default.post(name: .NSSystemTimeZoneDidChange, object: nil)
+    expectEq(appZone.identifier, before, "收到通知后重新读一遍，读到的还是同一个")
+}

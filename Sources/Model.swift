@@ -529,14 +529,9 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         super.init()
         cfg.userContentController.add(self, name: "ad")
         cfg.userContentController.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        // 切换语言：换掉注入的语言、重新加载聊天页（加载完会把当前会话再推一遍）
-        NotificationCenter.default.addObserver(forName: .languageChanged, object: nil, queue: .main) { [weak self] _ in
-            guard let self else { return }
-            let uc = self.web.configuration.userContentController
-            uc.removeAllUserScripts()
-            uc.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-            self.ready = false
-            self.web.reload()
+        // 切换语言、系统时区变了：换掉注入的语言和时区、重新加载聊天页（加载完会把当前会话再推一遍）
+        for name in [Notification.Name.languageChanged, .NSSystemTimeZoneDidChange] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.reloadPage() }
         }
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
@@ -547,6 +542,14 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
 
     /// 页面开始前注入：界面语言（页面里用 tr('中文','English') 取文案）、显示时间用的时区
     private static var pagePrelude: String { "window.AD_LANG = '\(appLang)'; window.AD_TZ = '\(appZone.identifier)';" }
+
+    private func reloadPage() {
+        let uc = web.configuration.userContentController
+        uc.removeAllUserScripts()
+        uc.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        ready = false
+        web.reload()
+    }
 
     // MARK: 文件变动通知：盯住正在看的这条会话的记录文件和还在跑的后台任务输出文件
 

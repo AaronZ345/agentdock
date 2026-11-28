@@ -342,13 +342,14 @@ struct UsageApp: Identifiable, Hashable {
     let items: [UsageItem]
 }
 
-private let usageFormatter: DateFormatter = {
+/// 每次现建，系统时区在运行中变了才跟得上
+private var usageFormatter: DateFormatter {
     let f = DateFormatter()
     f.timeZone = appZone
     f.locale = Locale(identifier: "en_US_POSIX")
     f.dateFormat = tr("M月d日 HH:mm", "MMM d HH:mm")
     return f
-}()
+}
 
 /// 用量：
 /// - Claude：在后台点开输入框旁的“用量”面板，读两条进度条（5 小时、每周）和各自的重置时间，读完按 Esc 关掉

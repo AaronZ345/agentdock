@@ -540,6 +540,12 @@ function zoned(d) {
   return { y: +p.year, m: +p.month, d: +p.day, hm, wd: WD[p.weekday], key: `${p.year}-${p.month}-${p.day}` };
 }
 const monthDay = d => tr(`${d.m}月${d.d}日`, `${MON[d.m - 1]} ${d.d}`);
+// 昨天按这个时区的日历算：夏令时切换那天一天不是 24 小时，直接减一天的毫秒数会落到前天
+function yesterdayKey() {
+  const t = zoned(new Date()), u = new Date(Date.UTC(t.y, t.m - 1, t.d));
+  u.setUTCDate(u.getUTCDate() - 1);
+  return `${u.getUTCFullYear()}-${u.getUTCMonth() + 1}-${u.getUTCDate()}`;
+}
 function clock(ts) {
   if (!ts) return '';
   const t = new Date(ts), d = zoned(t), now = new Date();
@@ -556,7 +562,7 @@ function daySep(ts) {
   lastDay = d.key;
   if (first) return '';
   const now = new Date();
-  return (d.key === zoned(now).key ? tr('今天', 'Today') : d.key === zoned(new Date(now - 864e5)).key ? tr('昨天', 'Yesterday') : monthDay(d)) + ' ' + d.hm;
+  return (d.key === zoned(now).key ? tr('今天', 'Today') : d.key === yesterdayKey() ? tr('昨天', 'Yesterday') : monthDay(d)) + ' ' + d.hm;
 }
 function took(ms) {
   const s = Math.round(ms / 1000);

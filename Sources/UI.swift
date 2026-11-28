@@ -7,8 +7,8 @@ struct WebView: NSViewRepresentable {
     func updateNSView(_ v: WKWebView, context: Context) {}
 }
 
-/// 全应用统一用系统时区（appZone，见 Zone.swift），不受环境变量 TZ 影响
-private let appCal: Calendar = { var c = Calendar(identifier: .gregorian); c.timeZone = appZone; return c }()
+/// 全应用统一用系统时区（appZone，见 Zone.swift），不受环境变量 TZ 影响；每次现取，系统时区变了才跟得上
+private var appCal: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = appZone; return c }
 
 private func dayLabel(_ d: Date) -> String {
     let cal = appCal
