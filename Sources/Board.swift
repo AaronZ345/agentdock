@@ -1119,8 +1119,9 @@ private func boardHookGroup(_ command: String) -> JSONValue {
 }
 
 /// 在一份配置文件里装上 / 摘掉看板钩子：只动带 --board-hook 的条目，别的钩子和其余的键按原样写回。
-/// 改之前先备份，写完重新读一遍核对，不对就恢复。createIfMissing：文件不存在时要不要新建
-func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing: Bool) -> HookFileOutcome {
+/// 改之前先备份，写完重新读一遍核对，不对就恢复。
+/// createIfMissing：文件不存在时要不要新建；now：备份文件名里的时间（测试时传固定的）
+func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing: Bool, now: Date = Date()) -> HookFileOutcome {
     let fm = FileManager.default
     let url = URL(fileURLWithPath: f)
     let exists = fm.fileExists(atPath: f)
@@ -1139,12 +1140,18 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
     var newRoot = root
     guard applyBoardHooks(&newRoot, on: on, command: command) else { return .unchanged }
 
-    // 改之前备份：第一次的那份 .agentdock-backup 一直留着，之后每次改动再留一份带时间的
-    let latest = f + ".agentdock-backup-" + backupStamp.string(from: Date())
+    // 改之前备份：第一次的那份 .agentdock-backup 一直留着，之后每次改动再留一份带时间的。
+    // 同一秒里改了好几次就在后面加序号，不覆盖上一次改动前的那份
+    let stamp = f + ".agentdock-backup-" + backupStamp.string(from: now)
+    var latest = stamp
+    var n = 2
+    while fm.fileExists(atPath: latest) {
+        latest = stamp + "-" + String(n)
+        n += 1
+    }
     if exists {
         let first = f + ".agentdock-backup"
         if !fm.fileExists(atPath: first) { try? fm.copyItem(atPath: f, toPath: first) }
-        try? fm.removeItem(atPath: latest)
         try? fm.copyItem(atPath: f, toPath: latest)
         pruneBackups(of: f)
     }

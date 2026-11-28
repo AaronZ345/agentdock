@@ -147,7 +147,12 @@ private struct JSONParser {
         let start = i
         while i < b.count, [0x2b, 0x2d, 0x2e, 0x45, 0x65].contains(b[i]) || (0x30...0x39).contains(b[i]) { i += 1 }
         guard i > start else { throw JSONTextError.invalid("不是合法的 JSON") }
-        return String(decoding: b[start..<i], as: UTF8.self)
+        let raw = String(decoding: b[start..<i], as: UTF8.self)
+        // 只认 JSON 规定的写法：01、1e+、1. 这些不算，不然写回去的文件就不是合法的 JSON 了
+        guard raw.wholeMatch(of: #/-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?/#) != nil else {
+            throw JSONTextError.invalid("数字的写法不对")
+        }
+        return raw
     }
 
     mutating func string() throws -> String {
@@ -233,7 +238,9 @@ private struct JSONParser {
             skipSpace()
             guard !atEnd, b[i] == 0x3a else { throw JSONTextError.invalid("键后面缺冒号") }
             i += 1
-            pairs.append((key, try value()))
+            let value = try value()
+            // 重复的键以最后一个为准（JSONSerialization、Claude Code 都这么读），位置留在第一次出现的地方
+            if let k = pairs.firstIndex(where: { $0.0 == key }) { pairs[k].1 = value } else { pairs.append((key, value)) }
             skipSpace()
             guard !atEnd else { throw JSONTextError.invalid("对象没有结束") }
             if b[i] == 0x2c { i += 1; continue }

@@ -55,9 +55,23 @@ func testJSONValueEscapes() {
 }
 
 func testJSONValueRejectsInvalid() {
-    for bad in ["", "{", "{\"a\":}", "{\"a\":1} x", "[1,]", "'a'", "nul", "{\"a\":\\ud800}", "{\"a\" 1}", "[\"\\u12"] {
+    for bad in ["", "{", "{\"a\":}", "{\"a\":1} x", "[1,]", "'a'", "nul", "{\"a\":\\ud800}", "{\"a\" 1}", "[\"\\u12",
+                "{\"n\":1e+}", "{\"n\":01}", "{\"n\":-01}", "{\"n\":-}", "{\"n\":.5}", "{\"n\":+1}", "{\"n\":1.}", "{\"n\":1e}", "{\"n\":1.5.3}"] {
         expect(!((try? JSONValue.parse(bad)) != nil), "不该当成合法 JSON：\(bad)")
     }
+}
+
+func testJSONValueNumbers() {
+    let v = try! JSONValue.parse(#"{"a": 1e+5, "b": -0, "c": 0.5, "d": 1E-9, "e": 123456789012345678901234567890}"#)
+    expectEq(v.objectPairs?.map { $0.1.text }, ["1e+5", "-0", "0.5", "1E-9", "123456789012345678901234567890"], "合法的数字按原文保留")
+}
+
+func testJSONValueDuplicateKeys() {
+    // 重复的键以最后一个为准，位置留在第一次出现的地方，和 JSONSerialization、Claude Code 的读法一致
+    let v = try! JSONValue.parse(#"{"a": 1, "b": 2, "a": 3}"#)
+    expectEq(v["a"]?.text, "3", "取最后一个")
+    expectEq(v.objectPairs?.map { $0.0 }, ["a", "b"], "位置不变")
+    expectEq(v.text, "{\n  \"a\": 3,\n  \"b\": 2\n}", "写回去只剩一个")
 }
 
 func testJSONValueSet() {
@@ -199,4 +213,23 @@ func testBoardHooksPrunesBackups() {
     let names = backups(of: f).sorted()
     expectEq(names.count, 11, "带时间的留 10 份，加上第一次的那份")
     expect(!names.contains("settings.json.agentdock-backup-20200101-000000"), "最旧的删掉")
+}
+
+func testBoardHooksBackupsUniqueWithinASecond() {
+    let f = hookFile("settings.json", "{}")
+    let now = Date(timeIntervalSince1970: 1_700_000_000)
+    for on in [true, false, true] {
+        expectEq(updateBoardHooks(file: f, on: on, command: hookCommand, createIfMissing: false, now: now), .changed, "每次都改了")
+    }
+    // 同一秒里改了三次：三份改动前的备份都要在
+    expectEq(backups(of: f).count, 4, "第一次的那份，加三份带时间的")
+}
+
+func testBoardHooksDuplicateHooksKey() {
+    // 配置里有两个 hooks 时，Claude Code 读的是后一个，钩子要装到后一个上
+    let f = hookFile("settings.json", #"{"hooks": {}, "hooks": {}}"#)
+    expectEq(updateBoardHooks(file: f, on: true, command: hookCommand, createIfMissing: false), .changed, "装到生效的那个上")
+    let v = parse(f)
+    expectEq(v.objectPairs?.count, 1, "只剩一个 hooks")
+    expectEq(commands(v, "SessionStart"), [hookCommand], "钩子在")
 }
