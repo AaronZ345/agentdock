@@ -1109,14 +1109,27 @@ func setBoardHooks(_ on: Bool) -> [String] {
     return changed
 }
 
-/// 改名后（AgentDock → Convoy）已装的钩子还指着旧应用的路径：发现带 --board-hook 却不是现在这条命令，就换成新的
+/// 一份配置里所有看板钩子的命令，是解析 JSON 之后的原文。文件读不懂返回 nil
+func boardHookCommands(inFile f: String) -> [String]? {
+    guard let d = try? Data(contentsOf: URL(fileURLWithPath: f)),
+          let root = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return nil }
+    var out: [String] = []
+    for ev in (root["hooks"] as? [String: Any] ?? [:]).values {
+        for g in ev as? [[String: Any]] ?? [] {
+            for h in g["hooks"] as? [[String: Any]] ?? [] {
+                if let c = h["command"] as? String, c.contains("--board-hook") { out.append(c) }
+            }
+        }
+    }
+    return out
+}
+
+/// 改名后（AgentDock → Convoy）已装的钩子还指着旧应用的路径：发现带 --board-hook 却不是现在这条命令，就换成新的。
+/// 比的是解析出来的命令：路径里有单引号时，命令带着 shell 转义的反斜杠，写进 JSON 又会被再转义一次，直接比文件原文对不上
 func migrateBoardHooks() {
     let home = NSHomeDirectory()
     let files = [home + "/.claude/settings.json", home + "/.codex/hooks.json"] + extraClaudeSettings
-    let stale = files.contains {
-        let t = (try? String(contentsOfFile: $0, encoding: .utf8)) ?? ""
-        return t.contains("--board-hook") && !t.contains(boardHookCommand)
-    }
+    let stale = files.contains { (boardHookCommands(inFile: $0) ?? []).contains { $0 != boardHookCommand } }
     if stale { setBoardHooks(true) }
 }
 
