@@ -256,6 +256,8 @@ final class Model: ObservableObject {
             }
         }
         Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.refreshUsage() }
+        // 系统时区变了：用量卡片上的重置时间是按旧时区排好版的，重新读一遍
+        NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in self?.refreshUsage() }
     }
 
     private var watchers: [FileWatcher] = []
@@ -536,7 +538,7 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in
             systemTimeZoneDidChange()
             guard let self else { return }
-            self.js("AD.setTimezone(\(self.jsonString([appZone.identifier])))")
+            self.pushTimezone()
         }
         web.navigationDelegate = self
         web.setValue(false, forKey: "drawsBackground")
@@ -554,6 +556,11 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
         uc.addUserScript(WKUserScript(source: Self.pagePrelude, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         ready = false
         web.reload()
+    }
+
+    /// 把现在的系统时区发给页面，页面原地换掉时区、重画时间
+    private func pushTimezone() {
+        js("AD.setTimezone(\(jsonString([appZone.identifier])))")
     }
 
     // MARK: 文件变动通知：盯住正在看的这条会话的记录文件和还在跑的后台任务输出文件
@@ -843,6 +850,8 @@ final class ChatController: NSObject, WKScriptMessageHandler, WKNavigationDelega
             lastHeader = ""
             lastSig = ""; lastSent = 0
             pushHeader()
+            // 页面加载期间系统时区可能已经变了：注入的是加载那一刻的，这里再发一次现在的
+            pushTimezone()
             reload()
             checkApproval()
             updateLiveTimer()
