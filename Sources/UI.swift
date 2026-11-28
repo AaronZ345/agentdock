@@ -23,11 +23,13 @@ private func dayTitle(_ day: String) -> String {
     ["今天": tr("今天", "Today"), "昨天": tr("昨天", "Yesterday"), "最近 7 天": tr("最近 7 天", "Previous 7 days"), "更早": tr("更早", "Older")][day] ?? day
 }
 
-private func timeLabel(_ d: Date) -> String {
+/// 时区由调用方传进来：系统时区变了，父视图会带着新的时区重新生成这一行
+private func timeLabel(_ d: Date, zone: TimeZone) -> String {
     let f = DateFormatter()
-    f.timeZone = appZone
+    f.timeZone = zone
     if isEnglish { f.locale = Locale(identifier: "en_US_POSIX") }
-    f.dateFormat = appCal.isDateInToday(d) ? "HH:mm" : tr("M月d日", "MMM d")
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = zone
+    f.dateFormat = cal.isDateInToday(d) ? "HH:mm" : tr("M月d日", "MMM d")
     return f.string(from: d)
 }
 
@@ -43,6 +45,7 @@ struct SessionRow: View {
     let s: Session
     let showProject: Bool
     var unread = false
+    let zone: TimeZone
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(nsImage: appIcon(s.appPath)).resizable().frame(width: 18, height: 18).padding(.top, 1)
@@ -70,7 +73,7 @@ struct SessionRow: View {
                 Label("\(s.bg)", systemImage: "gearshape.2").font(.caption2).foregroundStyle(.secondary)
                     .help(tr("\(s.bg) 个后台任务在跑", s.bg == 1 ? "1 background task running" : "\(s.bg) background tasks running"))
             } else {
-                Text(timeLabel(s.updated)).font(.caption2).foregroundStyle(.tertiary).padding(.top, 2)
+                Text(timeLabel(s.updated, zone: zone)).font(.caption2).foregroundStyle(.tertiary).padding(.top, 2)
             }
         }
         .padding(.vertical, 3)
@@ -236,7 +239,7 @@ struct RootView: View {
             }
             .padding(.vertical, 3)
         } else {
-            SessionRow(s: s, showProject: showProject, unread: model.isUnread(s))
+            SessionRow(s: s, showProject: showProject, unread: model.isUnread(s), zone: appZone)
                 .padding(.horizontal, 6)
                 .background(RoundedRectangle(cornerRadius: 7).fill(model.selectedId == s.id ? Color.primary.opacity(0.09) : .clear))
                 .contentShape(Rectangle())

@@ -165,6 +165,8 @@ final class Model: ObservableObject {
     @Published var query = "" { didSet { scheduleSearch() } }
     @Published var hits: [SearchHit] = []
     @Published var searching = false
+    /// 系统时区每变一次加一。侧栏每行的时间是按传进来的时区算的，靠这个让各行重新取时区
+    @Published private(set) var zoneRevision = 0
     private var searchGen = 0
     private let searchQueue = DispatchQueue(label: "agentdock.search", qos: .utility)
     private var warmed = false
@@ -256,8 +258,12 @@ final class Model: ObservableObject {
             }
         }
         Timer.scheduledTimer(withTimeInterval: 15 * 60, repeats: true) { [weak self] _ in self?.refreshUsage() }
-        // 系统时区变了：用量卡片上的重置时间是按旧时区排好版的，重新读一遍
-        NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in self?.refreshUsage() }
+        // 系统时区变了：先放掉时区缓存，再让侧栏各行重新取时区；用量卡片上的重置时间是按旧时区排好版的，重新读一遍
+        NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in
+            systemTimeZoneDidChange()
+            self?.zoneRevision += 1
+            self?.refreshUsage()
+        }
     }
 
     private var watchers: [FileWatcher] = []

@@ -804,7 +804,7 @@ struct BoardSessionList: View {
                          note: tr("\(sessions.count) 条 · 右键挪到别的项目或移出看板", "\(sessions.count) · right-click to move to another project or remove from the board"))
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 280), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(sessions) { s in
-                    SessionRow(s: s, showProject: false, unread: model.isUnread(s))
+                    SessionRow(s: s, showProject: false, unread: model.isUnread(s), zone: appZone)
                         .padding(.horizontal, 10).padding(.vertical, 4)
                         .background(RoundedRectangle(cornerRadius: 8).fill(card))
                         .contentShape(Rectangle())
