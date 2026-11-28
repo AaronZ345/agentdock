@@ -266,6 +266,10 @@ func testBoardHooksFollowSymlinks() {
 func testBoardHooksPrunesOldestRevisionsFirst() {
     let f = hookFile("settings.json", "{}")
     let dir = (f as NSString).deletingLastPathComponent
+    // 用户自己放在旁边的恢复目录：名字也带着这个前缀，清理时不能碰
+    let manual = dir + "/settings.json.agentdock-backup-manual"
+    try! FileManager.default.createDirectory(atPath: manual, withIntermediateDirectories: true)
+    try! Data("keep".utf8).write(to: URL(fileURLWithPath: manual + "/recovery.json"))
     let now = Date(timeIntervalSince1970: 1_700_000_000)
     for i in 0...11 {
         // 每次改动前文件里带着自己的序号，备份里就能看出是第几版
@@ -274,7 +278,26 @@ func testBoardHooksPrunesOldestRevisionsFirst() {
         try! Data(v.text.utf8).write(to: URL(fileURLWithPath: f))
         expectEq(updateBoardHooks(file: f, on: i % 2 == 0, command: hookCommand, createIfMissing: false, now: now), .changed, "第 \(i) 次改动")
     }
-    let stamped = backups(of: f).filter { $0.hasPrefix("settings.json.agentdock-backup-") }
+    let stamped = backups(of: f).filter { $0.hasPrefix("settings.json.agentdock-backup-") && $0 != "settings.json.agentdock-backup-manual" }
     let revs = stamped.map { Int(try! JSONValue.parse(try! String(contentsOfFile: dir + "/" + $0, encoding: .utf8))["rev"]?.text ?? "") ?? -1 }.sorted()
     expectEq(revs, Array(2...11), "同一秒里改了 12 次，留的是最近 10 版改动前的内容")
+    expectEq(read(manual + "/recovery.json"), "keep", "用户自己的恢复目录原样留着")
+}
+
+func testBoardHooksStopsWhenBackupCannotBeWritten() {
+    // 配置是个链接，链接所在的目录不可写（备份写不进去），链接指向的文件可写
+    let realDir = tempDir().appendingPathComponent("real").path
+    let linkDir = tempDir().appendingPathComponent("links").path
+    try! FileManager.default.createDirectory(atPath: realDir, withIntermediateDirectories: true)
+    try! FileManager.default.createDirectory(atPath: linkDir, withIntermediateDirectories: true)
+    let real = realDir + "/settings.json"
+    try! Data("{}".utf8).write(to: URL(fileURLWithPath: real))
+    let link = linkDir + "/settings.json"
+    try! FileManager.default.createSymbolicLink(atPath: link, withDestinationPath: real)
+    try! FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: linkDir)
+    defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: linkDir) }
+    expectEq(updateBoardHooks(file: link, on: true, command: hookCommand, createIfMissing: false),
+             .failed(tr("备份写不进去，没有改动配置", "could not write the backup; the configuration was not changed")), "备份写不进去就停")
+    expectEq(read(real), "{}", "指向的文件没被改")
+    expectEq(backups(of: link), [], "也没有留下半份备份")
 }

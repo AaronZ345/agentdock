@@ -1154,8 +1154,13 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
     if exists {
         // 备份里写的是改动前读到的内容。不复制文件本身：配置是个链接时复制出来的是链接，会跟着变
         let first = f + ".agentdock-backup"
-        if !fm.fileExists(atPath: first) { writeBackup(data, to: first, mode: mode) }
-        writeBackup(data, to: latest, mode: mode)
+        // 备份写不进去就不改配置：改了却没有能恢复的那一份
+        if !fm.fileExists(atPath: first) && !writeBackup(data, to: first, mode: mode) {
+            return .failed(tr("备份写不进去，没有改动配置", "could not write the backup; the configuration was not changed"))
+        }
+        guard writeBackup(data, to: latest, mode: mode) else {
+            return .failed(tr("备份写不进去，没有改动配置", "could not write the backup; the configuration was not changed"))
+        }
         pruneBackups(of: f)
     }
     func restore() {
@@ -1183,22 +1188,37 @@ func updateBoardHooks(file f: String, on: Bool, command: String, createIfMissing
 }
 
 /// 把改动前的内容写成一份备份，权限和原文件一样
-private func writeBackup(_ data: Data, to path: String, mode: Int?) {
+private func writeBackup(_ data: Data, to path: String, mode: Int?) -> Bool {
     let fm = FileManager.default
-    guard fm.createFile(atPath: path, contents: data, attributes: [.posixPermissions: mode ?? 0o644]) else { return }
+    guard fm.createFile(atPath: path, contents: data, attributes: [.posixPermissions: mode ?? 0o644]) else { return false }
     if let mode { try? fm.setAttributes([.posixPermissions: mode], ofItemAtPath: path) }
+    return true
 }
 
-/// 带时间的备份只留最近 backupKeep 份，按创建时间的先后删最旧的
+/// 带时间的备份只留最近 backupKeep 份，按创建时间的先后删最旧的。
+/// 只认这里自己生成的：普通文件，名字是“前缀 + 时间戳”，同一秒的再加两位序号。用户放在旁边的 settings.json.agentdock-backup-manual/ 这类目录不碰
 private func pruneBackups(of f: String) {
     let fm = FileManager.default
     let dir = URL(fileURLWithPath: (f as NSString).deletingLastPathComponent)
     let prefix = (f as NSString).lastPathComponent + ".agentdock-backup-"
-    let olds = ((try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey])) ?? []).filter { $0.lastPathComponent.hasPrefix(prefix) }
-    let dated = (try? olds.map { (url: $0, created: try $0.resourceValues(forKeys: [.creationDateKey]).creationDate ?? .distantPast) }) ?? []
-    for (url, _) in dated.sorted { $0.created == $1.created ? $0.url.path < $1.url.path : $0.created < $1.created }.dropLast(backupKeep) {
+    let entries = (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey])) ?? []
+    var dated: [(url: URL, created: Date)] = []
+    for url in entries where isGeneratedBackup(url, prefix: prefix) {
+        let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+        dated.append((url, created))
+    }
+    dated.sort { $0.created == $1.created ? $0.url.path < $1.url.path : $0.created < $1.created }
+    for (url, _) in dated.dropLast(backupKeep) {
         try? fm.removeItem(at: url)
     }
+}
+
+/// 这里自己生成的备份：普通文件，名字是“前缀 + 时间戳”，同一秒的再加两位序号
+private func isGeneratedBackup(_ url: URL, prefix: String) -> Bool {
+    let name = url.lastPathComponent
+    guard name.hasPrefix(prefix),
+          String(name.dropFirst(prefix.count)).range(of: "^\\d{8}-\\d{6}(-\\d{2})?$", options: .regularExpression) != nil else { return false }
+    return (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
 }
 
 /// 装上 / 摘掉钩子：Claude Code（~/.claude/settings.json，以及本机配置里额外 Claude 各账号的 settings.json）、Codex（~/.codex/hooks.json）。
