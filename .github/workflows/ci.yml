@@ -12,6 +12,9 @@ jobs:
         run: CONVOY_SKIP_SIGN=1 ./build.sh
       - name: 单元测试
         run: tools/test.sh
-      # 聊天页用到的脚本用 Node 测，tools/test-*.mjs 有几个就跑几个
+      # 聊天页用到的脚本用 Node 测，tools/test-*.mjs 有几个就跑几个，哪个失败这一步就失败
       - name: 网页脚本测试
-        run: find tools -name 'test-*.mjs' -exec node {} ";"
+        run: |
+          for t in tools/test-*.mjs; do
+            if [ -f "$t" ]; then node "$t"; fi
+          done
